@@ -1,5 +1,8 @@
 `timescale 1ns / 1ps
 
+`include "libstf_macros.svh"
+`include "axi_macros.svh"
+
 /**
  * Converts a ndata stream to an AXI stream.
  */
