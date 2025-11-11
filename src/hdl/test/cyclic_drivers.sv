@@ -15,7 +15,7 @@ module ReadyValidCyclicDriver #(
 
     input data_t data[NUM_ELEMENTS - 1:0],
 
-    ready_valid_i.m out_data
+    ready_valid_i.m out_data // #(data_t)
 );
 
 reg [$clog2(NUM_ELEMENTS)-1:0] i;
@@ -31,5 +31,53 @@ always_ff @(posedge clk) begin
         i <= (i + 1) % NUM_ELEMENTS;
     end
 end
+
+endmodule
+
+module NDataCyclicDriver #(
+    parameter type data_t,
+    parameter NUM_ELEMENTS,
+    parameter NUM_DATABEATS
+) (
+    input logic clk,
+    input logic rst_n,
+
+    input data_t[NUM_ELEMENTS - 1:0] data[NUM_DATABEATS - 1:0],
+    input logic[NUM_ELEMENTS - 1:0]  keep[NUM_DATABEATS - 1:0],
+
+    ndata_i.m out_data // (data_t, NUM_ELEMENTS)
+);
+
+typedef struct packed {
+    data_t[NUM_ELEMENTS - 1:0] data;
+    logic[NUM_ELEMENTS - 1:0]  keep;
+    logic last;
+} input_t;
+
+input_t in[NUM_DATABEATS - 1:0];
+
+generate
+for (genvar I = 0; I < NUM_DATABEATS; I++) begin
+    assign in[I].data = data[I];
+    assign in[I].keep = keep[I];
+    assign in[I].last = I == NUM_DATABEATS - 1;
+end
+endgenerate
+
+ready_valid_i #(input_t) inner ();
+
+ReadyValidCyclicDriver #(input_t, NUM_DATABEATS) ready_valid_cyclic_driver_inst (
+    .clk(clk),
+    .rst_n(rst_n),
+
+    .data(in),
+    .out_data(inner)
+);
+
+assign inner.ready = out_data.ready;
+assign out_data.valid = inner.valid;
+assign out_data.data = inner.data.data;
+assign out_data.keep = inner.data.keep;
+assign out_data.last = inner.data.last;
 
 endmodule
