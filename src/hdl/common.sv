@@ -38,24 +38,29 @@ typedef struct packed {
     alloc_size_t size;
 } buffer_t;
 
-typedef enum logic[1:0] {
-    UINT32_T,
-    UINT64_T,
-    DOUBLE
+typedef enum logic[2:0] {
+    BYTE_T,
+    INT32_T,
+    INT64_T,
+    FLOAT_T,
+    DOUBLE_T
 } type_t;
 
 // Constant function to return the bit width of type_t types
 function automatic int GET_TYPE_WIDTH(type_t data_type);
     case (data_type)
-        UINT32_T: begin
+        BYTE_T: begin
+            return 8;
+        end
+        INT32_T, FLOAT_T: begin
             return 32;
         end
-        UINT64_T, DOUBLE: begin
+        INT64_T, DOUBLE_T: begin
             return 64;
         end
         default: begin
             `ifndef SYNTHESIS
-            $display("ERROR: UNKNOWN data type %d", data_type);
+            $fatal(1, "ERROR: UNKNOWN data type %d", data_type);
             `endif
             return 0;
         end
