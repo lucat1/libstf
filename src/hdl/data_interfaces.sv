@@ -128,3 +128,24 @@ interface ntagged_i #(
         output ready
     );
 endinterface
+
+interface typed_ndata_i #(
+    parameter DATABEAT_SIZE
+);
+    data8_t[DATABEAT_SIZE - 1:0] data;
+    type_t                       typ; // Type cannot be used as it's a keyword in SystemVerilog
+    logic[DATABEAT_SIZE - 1:0]   keep;
+    logic                        last;
+    logic                        valid;
+    logic                        ready;
+
+    modport m (
+        input  ready,
+        output data, typ, keep, last, valid
+    );
+
+    modport s (
+        input  data, typ, keep, last, valid,
+        output ready
+    );
+endinterface

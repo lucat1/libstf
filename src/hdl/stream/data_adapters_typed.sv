@@ -178,3 +178,104 @@ assign out.last  = is_32bit ? in.tlast && is_upper == 1'b1 : in.tlast;
 assign out.valid = actual_type.valid && in.tvalid;
 
 endmodule
+
+/**
+ * Converts an data8_t ndata stream to a typed ndata stream.
+ */
+module NDataToTypedNData #(
+    parameter DATABEAT_SIZE
+) (
+    input logic clk,
+    input logic rst_n,
+
+    ready_valid_i.s in_type,     // #(type_t)
+    ndata_i in,                  // #(data8_t, DATABEAT_SIZE)
+
+    typed_ndata_i.m out          // #(DATABEAT_SIZE)
+);
+
+valid_i #(type_t) keep_type;
+always_ff @(posedge clk) begin
+    if (rst_n == 1'b0) begin
+        keep_type.valid <= 0;
+    end else begin
+        if (in_type.ready && in_type.valid) begin
+            keep_type.valid <= 1;
+            keep_type.data <= in_type.data;
+        end
+
+        if (out.ready && out.valid && out.last) begin
+            keep_type.valid <= 0;
+        end
+    end
+end
+
+valid_i #(type_t) typ;
+always_comb begin
+    if (keep_type.valid) begin
+        typ = keep_typ;
+    end else if (in_type.ready && in_type.valid) begin
+        typ.valid = 1;
+        typ.data = in_type.data;
+    end else begin
+        typ.valid = 0;
+    end
+end
+
+assign in_type.ready = ~keep_type.valid;
+assign in.ready = typ.valid && out.ready; // ready chaining
+
+for (genvar I = 0; I < DATABEAT_SIZE; I++) begin
+    assign out.data[I] = in.data[I];
+    assign out.keep[I] = in.keep[I];
+end
+
+assign out.last  = in.ast;
+assign out.valid = typ.valid && in.valid;
+assign out.typ = typ.data;
+
+endmodule
+
+/**
+ * Converts an AXI stream to a typed ndata stream.
+ */
+module AXIToTypedNData #(
+    parameter DATABEAT_SIZE,
+    parameter AXI_WIDTH = DATABEAT_SIZE * 8
+) (
+    input logic clk,
+    input logic rst_n,
+
+    ready_valid_i.s in_type,     // #(type_t)
+    AXI4S.s in,                  // #(AXI_WIDTH)
+
+    typed_ndata_i.m out          // #(DATABEAT_SIZE)
+);
+
+ndata_i #(data8_t, DATABEAT_SIZE) inner ();
+
+AXIToNData #(
+    .data_t(data8_t),
+    .NUM_ELEMENTS(DATABEAT_SIZE),
+    .AXI_WIDTH(AXI_WIDTH)
+) inst_axi_to_ndata (
+    .clk(clk),
+    .rst_n(rst_n),
+
+    .in(in),
+    .out(inner)
+);
+
+NDataToTypedNData #(
+    .DATABEAT_SIZE(DATABEAT_SIZE)
+) inst_ndata_to_typed_ndata (
+    .clk(clk),
+    .rst_n(rst_n),
+
+    .in_type(in_type),
+    .in(inner),
+
+    .out(out)
+);
+
+endmodule
