@@ -13,7 +13,7 @@ module NDataToAXITyped #(
     input logic clk,
     input logic rst_n,
 
-    ready_valid_i.s actual_type, // #(type_t)
+    ready_valid_i.s in_type, // #(type_t)
 
     ndata_i.s in, // #(data_t, NUM_ELEMENTS)
     AXI4S.m   out // #(AXI_WIDTH)
@@ -39,12 +39,12 @@ logic  last,  n_last;
 logic  valid, n_valid;
 
 // -- Logic ----------------------------------------------------------------------------------------
-assign is_32bit = GET_TYPE_WIDTH(actual_type.data) == 32;
-assign both_valid = actual_type.valid && in.valid;
+assign is_32bit = GET_TYPE_WIDTH(in_type.data) == 32;
+assign both_valid = in_type.valid && in.valid;
 
-assign actual_type.ready = in.valid && in.last && out.tready;
+assign in_type.ready = in.valid && in.last && out.tready;
 
-assign in.ready = actual_type.valid && out.tready;
+assign in.ready = in_type.valid && out.tready;
 
 for (genvar I = 0; I < NUM_ELEMENTS; I++) begin
     assign data_32bit[32 * I+:32] = in.data[I][0+:32];
@@ -133,7 +133,7 @@ module AXIToNDataTyped #(
     input logic clk,
     input logic rst_n,
 
-    ready_valid_i.s actual_type, // #(type_t)
+    ready_valid_i.s out_type, // #(type_t)
 
     AXI4S.s   in,   // #(AXI_WIDTH)
     ndata_i.m out // #(data_t, NUM_ELEMENTS)
@@ -149,11 +149,11 @@ logic actual_ready;
 data64_t[NUM_ELEMENTS - 1:0] data_32bit;
 logic[NUM_ELEMENTS - 1:0]    keep_32bit, keep_64bit;
 
-assign is_32bit = GET_TYPE_WIDTH(actual_type.data) == 32;
+assign is_32bit = GET_TYPE_WIDTH(out_type.data) == 32;
 assign actual_ready = is_32bit ? out.ready && is_upper == 1'b1 : out.ready;
-assign actual_type.ready = in.tvalid && in.tlast && actual_ready;
+assign out_type.ready = in.tvalid && in.tlast && actual_ready;
 
-assign in.tready = actual_type.valid && actual_ready;
+assign in.tready = out_type.valid && actual_ready;
 
 for (genvar I = 0; I < NUM_ELEMENTS; I++) begin
     assign data_32bit[I][0+:32] = is_upper == 1'b0 ? in.tdata[32 * I+:32] : in.tdata[32 * I + AXI_WIDTH / 2+:32];
@@ -166,7 +166,7 @@ always_ff @(posedge clk) begin
     if (rst_n == 1'b0) begin
         is_upper <= 1'b0;
     end else begin
-        if (actual_type.valid && in.tvalid && out.ready) begin
+        if (out_type.valid && in.tvalid && out.ready) begin
             is_upper <= ~is_upper;
         end
     end
@@ -175,7 +175,7 @@ end
 assign out.data  = is_32bit ? data_32bit : in.tdata;
 assign out.keep  = is_32bit ? keep_32bit : keep_64bit;
 assign out.last  = is_32bit ? in.tlast && is_upper == 1'b1 : in.tlast;
-assign out.valid = actual_type.valid && in.tvalid;
+assign out.valid = out_type.valid && in.tvalid;
 
 endmodule
 
