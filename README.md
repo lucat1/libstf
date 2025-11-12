@@ -1,4 +1,13 @@
-# Standard Library for Coyote vFPGAs (libstf)
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="img/libstf_dark.png">
+    <img src="img/libstf_light.png" width=450>
+  </picture>
+</p>
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+# a library of STandard components for FPGA hardware design (libSTF)
 
 This library is a collection of common modules used to develop hardware designs. Some modules are 
 specific to developing vFPGAs for Coyote. The main functionality it offers are:
