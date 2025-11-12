@@ -19,6 +19,12 @@ module NDataWidthConverter #(
     ndata_i.m out // #(data_t, OUT_WIDTH)
 );
 
+generate if (IN_WIDTH == OUT_WIDTH) begin
+
+`DATA_ASSIGN(in, out)
+
+end else begin
+
 `ASSERT_ELAB(IN_WIDTH == 8 && OUT_WIDTH == 16)
 
 logic is_upper, n_is_upper;
@@ -86,5 +92,7 @@ assign out.data  = data;
 assign out.keep  = keep;
 assign out.last  = last;
 assign out.valid = valid;
+
+end endgenerate
 
 endmodule
