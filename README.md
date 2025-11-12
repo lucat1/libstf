@@ -8,5 +8,6 @@ very bare bones. A bunch of modules may be broken. For now, we have a couple of 
 3. _t postfix for types
 4. n_ prefix for next signals in state logic
 
-## Next TODOs
-1. Refactor and rewrite unit tests for OutputWriter
+## TODOs
+1. Documentation
+2. Stream configuration that can take as many config values at once as we have outstanding requests (and tests for it)
