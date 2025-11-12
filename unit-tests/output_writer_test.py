@@ -12,7 +12,7 @@ class OutputWriterTest(OutputWriterTestCase):
     Tests the behavior of the FPGA-initiated transfers
     """
 
-    alternative_vfpga_top_file = "output_writer_test.sv"
+    alternative_vfpga_top_file = "vfpga_tops/output_writer_test.sv"
     debug_mode = True
     verbose_logging = True
 

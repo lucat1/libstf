@@ -41,7 +41,7 @@ class DictTest(fpga_test_case.FPGATestCase):
 
     debug_mode = True
     verbose_logging = True
-    alternative_vfpga_top_file = "dict_test.sv"
+    alternative_vfpga_top_file = "vfpga_tops/dict_test.sv"
 
     # Method that gets executed once per test case
     def setUp(self):
