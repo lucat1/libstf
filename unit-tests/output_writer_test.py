@@ -1,18 +1,13 @@
-from coyote_test import constants
 from typing import List
-from utils.fpga_compute import Int64Column, Column
-from utils.db_operator_test_case import FPGADbOpsTestCase, FPGADbOpsPerformanceTestCaseWithOutputWriter
-from utils.operators.filter import Greater_than_equal, And
+from coyote_test import constants
+from unit_test.fpga_stream import Stream, StreamType
+from utils.output_writer_test_case import OutputWriterPerformanceTestCase, OutputWriterTestCase
 from utils.memory_manager import FPGAOutputMemoryManager
-from utils.operators.filter_configuration import (
-    FilterMode,
-    FPGAFilterConfiguration,
-)
 
 MAX_NUMBER_STREAMS = constants.MAX_NUMBER_STREAMS
 TRANSFER_SIZE_BYTES_OVERWRITE = "TRANSFER_SIZE_BYTES_OVERWRITE"
 
-class OutputWriterTest(FPGADbOpsTestCase):
+class OutputWriterTest(OutputWriterTestCase):
     """
     Tests the behavior of the FPGA-initiated transfers
     """
@@ -26,33 +21,15 @@ class OutputWriterTest(FPGADbOpsTestCase):
         # All data in this test is streamed through.
         # There is no actual computation happening
         # (due to the way the wiring is done)
-        self.columns: List[Column] = []
+        self.streams: List[Stream] = []
 
     def simulate_fpga(self):
-        assert len(self.columns) > 0, "Cannot perform output test with 0 columns"
-
-        # We build a filter expression from the columns.
-        # The reason is that this give us the correct config for the reset!
-        filters = []
-        for column in self.columns:
-            # Greater than equal to the minimum column element (keep all data)
-            filters.append(
-                Greater_than_equal(column, min(column.column_data(), default=0))
-            )
-
-        expression = And(*filters)
-
-        # Write all the needed configurations
-        configuration = FPGAFilterConfiguration.from_filter_expression(
-            expression, FilterMode.FULL_MATERIALIZATION
-        )
-        for config in configuration.to_register_configuration():
-            self.write_register(config)
+        assert len(self.streams) > 0, "Cannot perform output test with 0 streams"
 
         # Set the input & output
-        for stream, column in enumerate(self.columns):
-            self.set_stream_input(stream, column)
-            self.set_expected_output(stream, column)
+        for id, stream in enumerate(self.streams):
+            self.set_stream_input(id, stream)
+            self.set_expected_output(id, stream)
 
         super().simulate_fpga()
 
@@ -62,7 +39,7 @@ class OutputWriterTest(FPGADbOpsTestCase):
         Also sets those values for the simulation
         """
         self.memory_manager = FPGAOutputMemoryManager(
-            self.get_io_writer(), allocation_size, transfer_size
+            self.get_io_writer(), 0, allocation_size, transfer_size
         )
         self.set_system_verilog_defines(
             {TRANSFER_SIZE_BYTES_OVERWRITE: str(transfer_size)}
@@ -72,14 +49,11 @@ class OutputWriterTest(FPGADbOpsTestCase):
         # Arrange
         allocation_size = 512
         transfer_size = 64
-        total_data_bytes = 904
         self.overwrite_memory_manager(allocation_size, transfer_size)
-        self.columns.append(
-            Int64Column("numbers", list(range(0, total_data_bytes // 8)))
-        )
-        self.columns.append(
-            Int64Column("numbers2", list(range(0, total_data_bytes // 8)))
-        )
+
+        total_data_bytes = 904
+        self.streams.append(Stream(StreamType.UNSIGNED_INT_64, list(range(0, total_data_bytes // 8))))
+        self.streams.append(Stream(StreamType.UNSIGNED_INT_64, list(range(0, total_data_bytes // 8))))
 
         # Act
         self.simulate_fpga()
@@ -91,14 +65,11 @@ class OutputWriterTest(FPGADbOpsTestCase):
         # Arrange
         allocation_size = 512
         transfer_size = 128
-        total_data_bytes = 904
         self.overwrite_memory_manager(allocation_size, transfer_size)
-        self.columns.append(
-            Int64Column("numbers", list(range(0, total_data_bytes // 8)))
-        )
-        self.columns.append(
-            Int64Column("numbers2", list(range(0, total_data_bytes // 8)))
-        )
+
+        total_data_bytes = 904
+        self.streams.append(Stream(StreamType.UNSIGNED_INT_64, list(range(0, total_data_bytes // 8))))
+        self.streams.append(Stream(StreamType.UNSIGNED_INT_64, list(range(0, total_data_bytes // 8))))
 
         # Act
         self.simulate_fpga()
@@ -110,14 +81,11 @@ class OutputWriterTest(FPGADbOpsTestCase):
         # Arrange
         allocation_size = 64
         transfer_size = 64
-        total_data_bytes = 904
         self.overwrite_memory_manager(allocation_size, transfer_size)
-        self.columns.append(
-            Int64Column("numbers", list(range(0, total_data_bytes // 8)))
-        )
-        self.columns.append(
-            Int64Column("numbers2", list(range(0, total_data_bytes // 8)))
-        )
+
+        total_data_bytes = 904
+        self.streams.append(Stream(StreamType.UNSIGNED_INT_64, list(range(0, total_data_bytes // 8))))
+        self.streams.append(Stream(StreamType.UNSIGNED_INT_64, list(range(0, total_data_bytes // 8))))
 
         # Act
         self.simulate_fpga()
@@ -128,9 +96,7 @@ class OutputWriterTest(FPGADbOpsTestCase):
     def test_with_default_allocation_size(self):
         # Arrange
         total_data_bytes = 904
-        self.columns.append(
-            Int64Column("numbers2", list(range(0, total_data_bytes // 8)))
-        )
+        self.streams.append(Stream(StreamType.UNSIGNED_INT_64, list(range(0, total_data_bytes // 8))))
 
         # Act
         self.simulate_fpga()
@@ -142,11 +108,10 @@ class OutputWriterTest(FPGADbOpsTestCase):
         # Arrange
         allocation_size = 64
         transfer_size = 64
-        total_data_bytes = 92
         self.overwrite_memory_manager(allocation_size, transfer_size)
-        self.columns.append(
-            Int64Column("numbers2", list(range(0, total_data_bytes // 8)))
-        )
+
+        total_data_bytes = 92
+        self.streams.append(Stream(StreamType.UNSIGNED_INT_64, list(range(0, total_data_bytes // 8))))
 
         # Act
         self.simulate_fpga()
@@ -158,12 +123,11 @@ class OutputWriterTest(FPGADbOpsTestCase):
         # Arrange
         allocation_size = 256
         transfer_size = 64
-        total_data_bytes = 4000
         self.overwrite_memory_manager(allocation_size, transfer_size)
-        for column in range(0, MAX_NUMBER_STREAMS):
-            self.columns.append(
-                Int64Column(f"numbers{column}", list(range(0, total_data_bytes // 8)))
-            )
+
+        total_data_bytes = 4000
+        for _ in range(0, MAX_NUMBER_STREAMS):
+            self.streams.append(Stream(StreamType.UNSIGNED_INT_64, list(range(0, total_data_bytes // 8))))
 
         # Act
         self.simulate_fpga()
@@ -175,11 +139,10 @@ class OutputWriterTest(FPGADbOpsTestCase):
         # Arrange
         allocation_size = 3 * 4096
         transfer_size = 4096
-        total_data_bytes = 4096 * 10
         self.overwrite_memory_manager(allocation_size, transfer_size)
-        self.columns.append(
-            Int64Column("numbers", list(range(0, total_data_bytes // 8)))
-        )
+
+        total_data_bytes = 4096 * 10
+        self.streams.append(Stream(StreamType.UNSIGNED_INT_64, list(range(0, total_data_bytes // 8))))
 
         # Act
         self.simulate_fpga()
@@ -188,7 +151,7 @@ class OutputWriterTest(FPGADbOpsTestCase):
         self.assert_simulation_output()
 
 
-class OutputWriterPerformanceTest(FPGADbOpsPerformanceTestCaseWithOutputWriter):
+class OutputWriterPerformanceTest(OutputWriterPerformanceTestCase):
     """
     Tests the performance of the FPGA-initiated transfers
     """
@@ -201,50 +164,23 @@ class OutputWriterPerformanceTest(FPGADbOpsPerformanceTestCaseWithOutputWriter):
         # All data in this test is streamed through.
         # There is no actual computation happening
         # (due to the way the wiring is done)
-        self.columns: List[Column] = []
+        self.streams: List[Stream] = []
 
     def simulate_fpga(self):
-        assert len(self.columns) > 0, "Cannot perform output test with 0 columns"
-
-        # We build a filter expression from the columns.
-        # The reason is that this give us the correct config for the reset!
-        filters = []
-        for column in self.columns:
-            # Greater than equal to the minimum column element (keep all data)
-            filters.append(
-                Greater_than_equal(column, min(column.column_data(), default=0))
-            )
-
-        expression = And(*filters)
-
-        # Write all the needed configurations
-        configuration = FPGAFilterConfiguration.from_filter_expression(
-            expression, FilterMode.FULL_MATERIALIZATION
-        )
-
-
-        # Write the needed registers
-        for config in configuration.to_register_configuration():
-            self.write_register(config)
-
-        # Add a short sleep to ensure the registers finish writing before any
-        # stream data is sent!
-        self.get_io_writer().sleep(100)
+        assert len(self.streams) > 0, "Cannot perform output test with 0 streams"
 
         # Set the input & output
-        for stream, column in enumerate(self.columns):
-            self.set_stream_input(stream, column)
-            self.set_expected_output(stream, column)
+        for id, stream in enumerate(self.streams):
+            self.set_stream_input(id, stream)
+            self.set_expected_output(id, stream)
 
         super().simulate_fpga()
 
     def test_streaming_through_performance(self):
         # Arrange
         total_data_bytes = 2000
-        for column in range(0, MAX_NUMBER_STREAMS):
-            self.columns.append(
-                Int64Column(f"numbers{column}", list(range(0, total_data_bytes // 8)))
-            )
+        for _ in range(0, MAX_NUMBER_STREAMS):
+            self.streams.append(Stream(StreamType.UNSIGNED_INT_64, list(range(0, total_data_bytes // 8))))
         self.set_expected_avg_cycles_per_batch_for_all_streams(1.0)
 
         # Act
@@ -253,3 +189,4 @@ class OutputWriterPerformanceTest(FPGADbOpsPerformanceTestCaseWithOutputWriter):
         # Assert
         self.assert_simulation_output()
         self.assert_expected_performance()
+    

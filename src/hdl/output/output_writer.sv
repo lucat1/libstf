@@ -1,6 +1,6 @@
 `timescale 1ns / 1ps
 
-import common::*;
+import libstf::*;
 import lynxTypes::*;
 
 `include "axi_macros.svh"

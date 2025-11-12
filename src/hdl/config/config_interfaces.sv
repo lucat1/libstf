@@ -2,6 +2,8 @@
 
 import libstf::*;
 
+`include "libstf_macros.svh"
+
 interface config_i;
     logic [AXI_ADDR_BITS - 1:0]  addr;
     logic [AXIL_DATA_BITS - 1:0] data;

@@ -1,5 +1,5 @@
-# Small extension to the FPGATestCase and FPGAPerformanceTestCase classes
-# with behavior specific to the FPGA DB ops implementation!
+# Small extension to the FPGATestCase and FPGAPerformanceTestCase classes with behavior specific to 
+# tests with an output writer.
 from coyote_test import (
     fpga_test_case,
     fpga_performance_test_case,
@@ -12,23 +12,8 @@ from utils.memory_manager import FPGAOutputMemoryManager
 from typing import Union, List, Dict, Optional
 import threading
 
-RESET_DRIVEN_LINE = "RESET: Driven"
 
-
-def assert_reset_signal_was_driven(simulation_output: str, expected_n_resets: int):
-    """
-    Helper method for the classes below to check whether the
-    reset was driven correctly.
-    """
-    split = simulation_output.split("\n")
-    found = list(filter(lambda x: RESET_DRIVEN_LINE in x, split))
-
-    assert len(found) == expected_n_resets, (
-        "RESET Signal was not driven after output was generated"
-    )
-
-
-class DbOpsMixin(fpga_test_case.FPGATestCase):
+class OutputWriterMixin(fpga_test_case.FPGATestCase):
     """
     This class provides all the needed extensions for the DBOps FPGATestCases.
     It gets mixed in below into the "normal" and the "performance" test case classes.
@@ -39,12 +24,12 @@ class DbOpsMixin(fpga_test_case.FPGATestCase):
         super().setUp()
         self.memory_manager = FPGAOutputMemoryManager(
             self.get_io_writer(),
+            0,
             all_done_callback=self.memory_manager_all_done_callback_spawner,
         )
         # Streams who's output is expected on the card stream
         self.output_card_streams = []
         self.expected_output: Dict[int, List[Union[fpga_stream.Stream, bytearray]]] = {}
-        self.expected_n_resets = 1
         self.card_thread = None
 
     def memory_manager_all_done_callback_spawner(self):
@@ -111,7 +96,7 @@ class DbOpsMixin(fpga_test_case.FPGATestCase):
         stream_type=io_writer.CoyoteStreamType.STREAM_HOST,
     ):
         """
-        Overwrite that uses FPGA initiated transfers instead of host-initiated transfers.
+        Overwrite that uses FPGA-initiated transfers instead of host-initiated transfers.
         """
         assert stream_type != io_writer.CoyoteStreamType.STREAM_RDMA, (
             "RDMA streams are not supported atm"
@@ -210,27 +195,19 @@ class DbOpsMixin(fpga_test_case.FPGATestCase):
         # Assert the content is correct
         self._set_expected_memory_content_for_streams()
         super().assert_simulation_output()
-        # Check that the reset signal was driven correctly
-        assert_reset_signal_was_driven(
-            self.get_simulation_output(), self.expected_n_resets
-        )
 
 
-class FPGADbOpsTestCase(DbOpsMixin):
+class OutputWriterTestCase(OutputWriterMixin):
     pass
 
 
-class FPGADbOpsPerformanceTestCase(fpga_performance_test_case.FPGAPerformanceTestCase):
+class OutputWriterDisabledPerformanceTestCase(fpga_performance_test_case.FPGAPerformanceTestCase):
     """
     This is the default performance test case class that should be used
     for 99% of the performance tests in this repo.
     This test case adheres to all the properties as described in
     the docs: https://github.com/fpgasystems/Coyote/tree/software-cleanup/sim/unit_test
     """
-
-    def setUp(self):
-        super().setUp()
-        self.expected_n_resets = 1
 
     def simulate_fpga_non_blocking(self) -> threading.Event:
         self.overwrite_simulation_time(simulation_time.SimulationTime.till_finished())
@@ -240,17 +217,9 @@ class FPGADbOpsPerformanceTestCase(fpga_performance_test_case.FPGAPerformanceTes
 
         return super().simulate_fpga_non_blocking()
 
-    def assert_simulation_output(self):
-        # Assert the content is correct
-        super().assert_simulation_output()
-        # Check that the reset signal was driven correctly
-        assert_reset_signal_was_driven(
-            self.get_simulation_output(), self.expected_n_resets
-        )
 
-
-class FPGADbOpsPerformanceTestCaseWithOutputWriter(
-    DbOpsMixin, fpga_performance_test_case.FPGAPerformanceTestCase
+class OutputWriterPerformanceTestCase(
+    OutputWriterMixin, fpga_performance_test_case.FPGAPerformanceTestCase
 ):
     """
     This class allows to run performance test with the output writer enabled.

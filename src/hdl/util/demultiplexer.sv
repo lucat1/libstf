@@ -1,7 +1,6 @@
 `timescale 1ns / 1ps
 
 `include "libstf_macros.svh"
-`include "axi_mask_macro.svh"
 
 // General de-muxing implementation that is used for AXI and metaInf streams below.
 module Demultiplexer #(

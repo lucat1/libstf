@@ -4,10 +4,26 @@ package libstf;
 
 import lynxTypes::*;
 
+// This value describes the maximum size in bytes of one memory transfer.
+// Each transfer of this size will get a acknowledgement.
+// The memory allocated for the output by the host should be a multiple of
+// this size. Otherwise, the 'overhang' will go unused.
+// The overwrite value is used on tests to trigger specific conditions.
+// For the synthesis, the default value will be used.
+`ifdef TRANSFER_SIZE_BYTES_OVERWRITE
+    localparam integer TRANSFER_SIZE_BYTES = `TRANSFER_SIZE_BYTES_OVERWRITE;
+`else
+    // This value is used as it allowed peak performance in the perf_fpga example.
+    // See: https://github.com/fpgasystems/Coyote/tree/tutorial/examples/07_perf_fpga
+    //      (Section Expected results)
+    localparam integer TRANSFER_SIZE_BYTES = 65536;
+`endif
+
 // The maximum size per host allocation that is supported by the design. (2**28 - 1 = 256 MiB - 1 byte)
 // This limitation comes from the 32 bits we have available for interrupt values.
 // See output_writer for more info.
-localparam integer MAXIMUM_HOST_ALLOCATION_LEN_BIT = 28;
+localparam integer MAXIMUM_HOST_ALLOCATION_LEN_BIT    = 28;
+localparam integer MAXIMUM_HOST_ALLOCATION_SIZE_BYTES = 2 ** MAXIMUM_HOST_ALLOCATION_LEN_BIT - 1;
 
 typedef logic[7:0]  data8_t;
 typedef logic[15:0] data16_t;
