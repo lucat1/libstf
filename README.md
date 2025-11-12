@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="img/libstf_dark.png">
-    <img src="img/libstf_light.png" width=450>
+    <img src="img/libstf_light.png" width=400>
   </picture>
 </p>
 
