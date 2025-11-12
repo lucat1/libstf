@@ -21,28 +21,28 @@ localparam SERIAL_BEAT_BITS = SERIAL_WIDTH - DATA_BITS;
 
 typedef logic[SERIAL_BEAT_BITS - 1:0] beat_serial_t;
 
-beat_serial_t serial_count;
+beat_serial_t serial_count[NUM_ELEMENTS];
 
 tagged_i #(data_t, SERIAL_WIDTH) n_out[NUM_ELEMENTS]();
 logic[NUM_ELEMENTS - 1:0] out_valid, out_ready;
 
 assign in.ready = ~|out_valid || &out_ready;
 
-always_ff @(posedge clk) begin
-    if(!rst_n) begin
-        serial_count <= '0;     
-    end else begin
-        if (in.valid && in.ready) begin
-            serial_count <= serial_count + 1;
-        end else begin
-            serial_count <= serial_count;
-        end
-    end
-end
-
 for (genvar I = 0; I < NUM_ELEMENTS; I++) begin
     assign out_valid[I] = out[I].valid;
     assign out_ready[I] = out[I].ready;
+
+    always_ff @(posedge clk) begin
+        if(!rst_n) begin
+            serial_count[I] <= '0;     
+        end else begin
+            if (in.valid && in.keep[I] && in.ready) begin
+                serial_count[I] <= serial_count[I] + 1;
+            end else begin
+                serial_count[I] <= serial_count[I];
+            end
+        end
+    end
 
     always_ff @(posedge clk) begin
         if(!rst_n) begin
@@ -65,7 +65,7 @@ for (genvar I = 0; I < NUM_ELEMENTS; I++) begin
 
         if (in.ready) begin
             n_out[I].data  = in.data[I];
-            n_out[I].tag   = (serial_count << DATA_BITS) + I;
+            n_out[I].tag   = (serial_count[I] << DATA_BITS) + I;
             n_out[I].keep  = in.keep[I];
             n_out[I].last  = in.last;
             n_out[I].valid = in.valid;
