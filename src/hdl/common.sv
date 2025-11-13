@@ -59,9 +59,6 @@ function automatic int GET_TYPE_WIDTH(type_t data_type);
             return 64;
         end
         default: begin
-            `ifndef SYNTHESIS
-            $fatal(1, "ERROR: UNKNOWN data type %d", data_type);
-            `endif
             return 0;
         end
     endcase

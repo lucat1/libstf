@@ -13,7 +13,7 @@ module NDataToAXITyped #(
     input logic clk,
     input logic rst_n,
 
-    ready_valid_i.s in_type, // #(type_t)
+    ready_valid_i.s out_type, // #(type_t)
 
     ndata_i.s in, // #(data_t, NUM_ELEMENTS)
     AXI4S.m   out // #(AXI_WIDTH)
@@ -34,17 +34,21 @@ logic[AXI_WIDTH / 16 - 1:0] keep_32bit;
 keep_t keep_64bit;
 
 logic[AXI_WIDTH - 1:0] data, n_data;
-keep_t keep, n_keep;
+keep_t keep,  n_keep;
 logic  last,  n_last;
 logic  valid, n_valid;
 
+// -- Assertions -----------------------------------------------------------------------------------
+assert property (@(posedge clk) disable iff (!rst_n) not out_type.valid or GET_TYPE_WIDTH(out_type.data) == 32 or GET_TYPE_WIDTH(out_type.data) == 64)
+else $fatal(1, "Type width %0d is not supported!", GET_TYPE_WIDTH(out_type.data));
+
 // -- Logic ----------------------------------------------------------------------------------------
-assign is_32bit = GET_TYPE_WIDTH(in_type.data) == 32;
-assign both_valid = in_type.valid && in.valid;
+assign is_32bit = GET_TYPE_WIDTH(out_type.data) == 32;
+assign both_valid = out_type.valid && in.valid;
 
-assign in_type.ready = in.valid && in.last && out.tready;
+assign out_type.ready = in.valid && in.last && out.tready;
 
-assign in.ready = in_type.valid && out.tready;
+assign in.ready = out_type.valid && out.tready;
 
 for (genvar I = 0; I < NUM_ELEMENTS; I++) begin
     assign data_32bit[32 * I+:32] = in.data[I][0+:32];
@@ -133,7 +137,7 @@ module AXIToNDataTyped #(
     input logic clk,
     input logic rst_n,
 
-    ready_valid_i.s out_type, // #(type_t)
+    ready_valid_i.s in_type, // #(type_t)
 
     AXI4S.s   in,   // #(AXI_WIDTH)
     ndata_i.m out // #(data_t, NUM_ELEMENTS)
@@ -149,11 +153,15 @@ logic actual_ready;
 data64_t[NUM_ELEMENTS - 1:0] data_32bit;
 logic[NUM_ELEMENTS - 1:0]    keep_32bit, keep_64bit;
 
-assign is_32bit = GET_TYPE_WIDTH(out_type.data) == 32;
-assign actual_ready = is_32bit ? out.ready && is_upper == 1'b1 : out.ready;
-assign out_type.ready = in.tvalid && in.tlast && actual_ready;
+// -- Assertions -----------------------------------------------------------------------------------
+assert property (@(posedge clk) disable iff (!rst_n) not in_type.valid or GET_TYPE_WIDTH(in_type.data) == 32 or GET_TYPE_WIDTH(in_type.data) == 64)
+else $fatal(1, "Type width %0d is not supported!", GET_TYPE_WIDTH(in_type.data));
 
-assign in.tready = out_type.valid && actual_ready;
+assign is_32bit = GET_TYPE_WIDTH(in_type.data) == 32;
+assign actual_ready = is_32bit ? out.ready && is_upper == 1'b1 : out.ready;
+assign in_type.ready = in.tvalid && in.tlast && actual_ready;
+
+assign in.tready = in_type.valid && actual_ready;
 
 for (genvar I = 0; I < NUM_ELEMENTS; I++) begin
     assign data_32bit[I][0+:32] = is_upper == 1'b0 ? in.tdata[32 * I+:32] : in.tdata[32 * I + AXI_WIDTH / 2+:32];
@@ -166,7 +174,7 @@ always_ff @(posedge clk) begin
     if (rst_n == 1'b0) begin
         is_upper <= 1'b0;
     end else begin
-        if (out_type.valid && in.tvalid && out.ready) begin
+        if (in_type.valid && in.tvalid && out.ready) begin
             is_upper <= ~is_upper;
         end
     end
@@ -175,7 +183,7 @@ end
 assign out.data  = is_32bit ? data_32bit : in.tdata;
 assign out.keep  = is_32bit ? keep_32bit : keep_64bit;
 assign out.last  = is_32bit ? in.tlast && is_upper == 1'b1 : in.tlast;
-assign out.valid = out_type.valid && in.tvalid;
+assign out.valid = in_type.valid && in.tvalid;
 
 endmodule
 
@@ -213,7 +221,7 @@ end
 valid_i #(type_t) typ;
 always_comb begin
     if (keep_type.valid) begin
-        typ = keep_typ;
+        typ = keep_type;
     end else if (in_type.ready && in_type.valid) begin
         typ.valid = 1;
         typ.data = in_type.data;

@@ -7,7 +7,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-# A Standard Library for FPGA Hardware Design
+# A Standard Library for Hardware Design
 
 This library is a collection of common modules used to develop hardware designs. Some modules are 
 specific to developing vFPGAs for Coyote. The main functionality libstf offers is:
@@ -49,8 +49,8 @@ For now, we have a couple of code style rules:
 - *Width* always refers to width in bits and *size* to width in bytes
 
 ## TODOs
-2. Stream configuration that can take as many config values at once as we have outstanding requests (and tests for it)
-3. Figure out a way to test 0-length streams
+1. Stream configuration that can take as many config values at once as we have outstanding requests (and tests for it)
+2. Figure out a way to test 0-length streams
 
 ## License
 The libstf code is licensed under the terms in [LICENSE.md](https://github.com/fpgasystems/libstf/blob/master/LICENSE.md), which corresponds to the MIT Licence.
