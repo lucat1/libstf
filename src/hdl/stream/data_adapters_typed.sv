@@ -202,7 +202,7 @@ module NDataToTypedNData #(
     typed_ndata_i.m out          // #(DATABEAT_SIZE)
 );
 
-valid_i #(type_t) keep_type;
+valid_i #(type_t) keep_type ();
 always_ff @(posedge clk) begin
     if (rst_n == 1'b0) begin
         keep_type.valid <= 0;
@@ -218,10 +218,11 @@ always_ff @(posedge clk) begin
     end
 end
 
-valid_i #(type_t) typ;
+valid_i #(type_t) typ ();
 always_comb begin
     if (keep_type.valid) begin
-        typ = keep_type;
+        typ.valid = keep_type.valid;
+        typ.data = keep_type.data;
     end else if (in_type.ready && in_type.valid) begin
         typ.valid = 1;
         typ.data = in_type.data;
@@ -238,7 +239,7 @@ for (genvar I = 0; I < DATABEAT_SIZE; I++) begin
     assign out.keep[I] = in.keep[I];
 end
 
-assign out.last  = in.ast;
+assign out.last  = in.last;
 assign out.valid = typ.valid && in.valid;
 assign out.typ = typ.data;
 
@@ -283,6 +284,41 @@ NDataToTypedNData #(
     .in_type(in_type),
     .in(inner),
 
+    .out(out)
+);
+
+endmodule
+
+/**
+ * Converts a typed ndata stream into an AXI stream.
+ */
+module TypedNDataToAXI #(
+    parameter DATABEAT_SIZE,
+    parameter AXI_WIDTH = DATABEAT_SIZE * 8
+) (
+    input logic clk,
+    input logic rst_n,
+
+    typed_ndata_i.s in,         // #(DATABEAT_SIZE)
+
+    AXI4S.m out                 // #(AXI_WIDTH)
+);
+
+ndata_i #(data8_t, DATABEAT_SIZE) inner ();
+
+// Discard the typ field on the typed_ndata_i.
+// After that, typed_ndata_i is the same as ndata_i.
+`DATA_ASSIGN(in, inner)
+
+NDataToAXI #(
+    .data_t(data8_t),
+    .NUM_ELEMENTS(DATABEAT_SIZE),
+    .AXI_WIDTH(AXI_WIDTH)
+) inst_axi_to_ndata (
+    .clk(clk),
+    .rst_n(rst_n),
+
+    .in(inner),
     .out(out)
 );
 
