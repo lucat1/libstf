@@ -1,3 +1,5 @@
+import libstf::*;
+
 interface valid_i #(
     parameter type data_t
 );

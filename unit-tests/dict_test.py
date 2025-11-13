@@ -2,6 +2,7 @@ import random
 from typing import List
 from coyote_test import fpga_test_case, fpga_register
 from unit_test.fpga_stream import get_bytes_for_stream_type, Stream, StreamType
+from utils.common import stream_type_to_libstf_type_t
 
 class DictExpression:
     def __init__(
@@ -53,12 +54,11 @@ class DictTest(fpga_test_case.FPGATestCase):
             "Cannot have dictionary test with empty dictionary expression!"
         )
 
-        stream_type_size = get_bytes_for_stream_type(self.expression.values[0].stream_type())
-        assert stream_type_size == 4 or stream_type_size == 8, (
+        stream_type = self.expression.values[0].stream_type()
+        assert get_bytes_for_stream_type(stream_type) in (4, 8), (
             "Only 32bit and 64bit columns are supported by dictionary"
         )
-
-        type_reg = 2 if stream_type_size == 8 else 1
+        type_reg = stream_type_to_libstf_type_t(stream_type)
 
         # Configuration
         self.write_register(fpga_register.vFPGARegister(1, bytearray([type_reg])))

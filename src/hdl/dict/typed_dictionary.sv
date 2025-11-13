@@ -46,7 +46,7 @@ assign dictionary_in_values.valid = in_values.valid;
 
 typedef struct packed {
     // Whether we're buffering some half-input. This is only used if
-    // in_values.type == B64, for each second half of the in_ids
+    // type width is 64 bits, for each second half of the in_ids
     // databeats.
     logic                     valid;
 
@@ -84,12 +84,7 @@ always_ff @(posedge clk) begin
         // second half of the databeat and provide it as input to the dictionary
         // decoder in the next batch. This will be done by the the
         // combinatorial logic.
-        if (in_ids.ready && in_ids.valid) begin
-            $display("dictionary in_ids: ready %b, valid %b, keep %x, data %x", in_ids.ready, in_ids.valid, in_ids.keep, in_ids.data);
-        end
-
         if (typ.valid && GET_TYPE_WIDTH(typ.data) == 64 && dictionary_in_ids.ready && dictionary_in_ids.valid) begin
-            $display("dictionary ids: ready %b, valid %b, keep %x, data %x", dictionary_in_ids.ready, dictionary_in_ids.valid, dictionary_in_ids.keep, dictionary_in_ids.data);
             if (state.valid) begin
                 // The buffered in_values data has been consumed (since we
                 // handshaked on dictionary_in_ids in this cycle), so mark it
