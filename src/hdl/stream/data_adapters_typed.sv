@@ -39,7 +39,7 @@ logic  last,  n_last;
 logic  valid, n_valid;
 
 // -- Assertions -----------------------------------------------------------------------------------
-assert property (@(posedge clk) disable iff (!rst_n) not out_type.valid or GET_TYPE_WIDTH(out_type.data) == 32 or GET_TYPE_WIDTH(out_type.data) == 64)
+assert property (@(posedge clk) disable iff (!rst_n) !out_type.valid || GET_TYPE_WIDTH(out_type.data) == 32 || GET_TYPE_WIDTH(out_type.data) == 64)
 else $fatal(1, "Type width %0d is not supported!", GET_TYPE_WIDTH(out_type.data));
 
 // -- Logic ----------------------------------------------------------------------------------------
@@ -154,7 +154,7 @@ data64_t[NUM_ELEMENTS - 1:0] data_32bit;
 logic[NUM_ELEMENTS - 1:0]    keep_32bit, keep_64bit;
 
 // -- Assertions -----------------------------------------------------------------------------------
-assert property (@(posedge clk) disable iff (!rst_n) not in_type.valid or GET_TYPE_WIDTH(in_type.data) == 32 or GET_TYPE_WIDTH(in_type.data) == 64)
+assert property (@(posedge clk) disable iff (!rst_n) !in_type.valid || GET_TYPE_WIDTH(in_type.data) == 32 || GET_TYPE_WIDTH(in_type.data) == 64)
 else $fatal(1, "Type width %0d is not supported!", GET_TYPE_WIDTH(in_type.data));
 
 assign is_32bit = GET_TYPE_WIDTH(in_type.data) == 32;

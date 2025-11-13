@@ -58,7 +58,7 @@ class DictTest(fpga_test_case.FPGATestCase):
             "Only 32bit and 64bit columns are supported by dictionary"
         )
 
-        type_reg = stream_type_size == 8 if 1 else 0
+        type_reg = 2 if stream_type_size == 8 else 1
 
         # Configuration
         self.write_register(fpga_register.vFPGARegister(1, bytearray([type_reg])))

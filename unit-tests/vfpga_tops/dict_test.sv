@@ -84,7 +84,7 @@ AXIToNDataTyped #(
     .clk(clk),
     .rst_n(rst_n),
 
-    .actual_type(in_data_type),
+    .in_type(in_data_type),
 
     .in(axi_host_recv_0),
     .out(dict_values)
@@ -127,7 +127,7 @@ NDataToAXITyped #(
     .clk(clk),
     .rst_n(rst_n),
 
-    .actual_type(out_data_type),
+    .out_type(out_data_type),
 
     .in(dict_out),
     .out(axi_out[0])
