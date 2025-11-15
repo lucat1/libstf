@@ -1,48 +1,19 @@
+from enum import Enum
 import random
 from typing import List
 from coyote_test import fpga_test_case, fpga_register
 from unit_test.fpga_stream import get_bytes_for_stream_type, Stream, StreamType
 from utils.common import stream_type_to_libstf_type_t
+from .dict_test import DictExpression
 
-class DictExpression:
-    def __init__(
-        self,
-        values: List[Stream],
-        ids: List[List[int]],
-    ):
-        assert len(values) == len(ids)
-        for v, i in zip(values, ids):
-            assert len(i) > 0
-            assert max(i) < len(v.stream_data())
-
-        self.values = values
-        self.ids = ids
-    
-    def apply(self) -> List[Stream]:
-        """
-        Returns the result column
-        """
-        result = []
-        for v, i in zip(self.values, self.ids):
-            data = [v.stream_data()[id] for id in i]
-            result.append(Stream(v.stream_type(), data))
-        return result
-    
-    def get_ids(self):
-        result = []
-        for i in self.ids:
-            result.append(Stream(StreamType.UNSIGNED_INT_32, i))
-        return result
-
-
-class DictTest(fpga_test_case.FPGATestCase):
+class TypedDictTest(fpga_test_case.FPGATestCase):
     """
-    These tests test the cached and stream materializer.
+    These tests test the typed dictionary.
     """
 
     debug_mode = True
     verbose_logging = True
-    alternative_vfpga_top_file = "vfpga_tops/dict_test.sv"
+    alternative_vfpga_top_file = "vfpga_tops/typed_dict_test.sv"
 
     # Method that gets executed once per test case
     def setUp(self):
