@@ -105,6 +105,18 @@ module AXIToData #(
     data_i.m out // #(data_t)
 );
 
+generate if (NUM_ELEMENTS == 1) begin
+
+`ASSERT_ELAB(DATA_WIDTH == AXI_WIDTH)
+
+assign in.tready = out.ready;
+assign out.keep  = &in.tkeep;
+assign out.last  = in.tlast;
+assign out.valid = in.tvalid;
+assign out.data  = in.tdata;
+
+end else begin
+
 logic[$clog2(NUM_ELEMENTS) - 1:0] counter;
 
 assign in.tready = out.ready && counter == NUM_ELEMENTS - 1;
@@ -123,5 +135,7 @@ assign out.data  = in.tdata[counter * DATA_WIDTH+:DATA_WIDTH];
 assign out.keep  = in.tkeep[counter * DATA_WIDTH / 8];
 assign out.last  = in.tlast && counter == NUM_ELEMENTS - 1;
 assign out.valid = in.tvalid;
+
+end endgenerate
 
 endmodule
