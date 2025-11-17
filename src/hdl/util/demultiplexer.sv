@@ -92,7 +92,7 @@ Demultiplexer #(
     .i_valid(data_in.valid),
     
     // Use the dest field of the data to control the de mux!
-    .stream_select(data_in.data.dest),
+    .stream_select(data_in.data.dest[$clog2(N_STREAMS) - 1:0]),
 
     .o_data(o_data_packed),
     .o_ready(o_ready_array),

@@ -1,10 +1,8 @@
-from enum import Enum
 import random
-from typing import List
 from coyote_test import fpga_test_case, fpga_register
 from unit_test.fpga_stream import get_bytes_for_stream_type, Stream, StreamType
 from utils.common import stream_type_to_libstf_type_t
-from .dict_test import DictExpression
+from dict_test import DictExpression
 
 class TypedDictTest(fpga_test_case.FPGATestCase):
     """
