@@ -16,22 +16,24 @@ module Crossbar #(
     data_i.m   out[NUM_OUTPUTS] // #(data_t)
 );
 
+// We need this generate wrapper to fix some issue that we found in ParCore. 
+// We did not find a good explanation why we need it though.
+generate 
+
 tagged_i #(data_t, TAG_WIDTH) skid_pipe[NUM_INPUTS][NUM_SKID_BUFFERS + 1]();
 tagged_i #(data_t, TAG_WIDTH) mux_in[NUM_OUTPUTS][NUM_INPUTS]();
 
 logic[NUM_INPUTS-1:0][NUM_OUTPUTS-1:0] mux_ready_transposed;
-
-generate
-    for(genvar I = 0; I < NUM_INPUTS; I++) begin
-        assign in[I].ready = skid_pipe[I][0].ready;
-        
-        assign skid_pipe[I][0].data  = in[I].data;
-        assign skid_pipe[I][0].tag   = in[I].tag;
-        assign skid_pipe[I][0].keep  = in[I].keep;
-        assign skid_pipe[I][0].last  = in[I].last;
-        assign skid_pipe[I][0].valid = in[I].valid;
-    end
-endgenerate
+    
+for (genvar I = 0; I < NUM_INPUTS; I++) begin
+    assign in[I].ready = skid_pipe[I][0].ready;
+    
+    assign skid_pipe[I][0].data  = in[I].data;
+    assign skid_pipe[I][0].tag   = in[I].tag;
+    assign skid_pipe[I][0].keep  = in[I].keep;
+    assign skid_pipe[I][0].last  = in[I].last;
+    assign skid_pipe[I][0].valid = in[I].valid;
+end
 
 // SkidBuffer pipeline
 for (genvar I = 0; I < NUM_INPUTS; I++) begin
@@ -50,7 +52,7 @@ for (genvar I = 0; I < NUM_INPUTS; I++) begin
 end
 
 // Multiplexers
-for(genvar I = 0; I < NUM_INPUTS; I++) begin
+for (genvar I = 0; I < NUM_INPUTS; I++) begin
     assign skid_pipe[I][NUM_SKID_BUFFERS].ready = &mux_ready_transposed[I];
 
     for(genvar O = 0; O < NUM_OUTPUTS; O++) begin
@@ -62,9 +64,9 @@ for(genvar I = 0; I < NUM_INPUTS; I++) begin
         assign mux_in[O][I].last  = skid_pipe[I][NUM_SKID_BUFFERS].last;
         assign mux_in[O][I].valid = skid_pipe[I][NUM_SKID_BUFFERS].valid;
     end
-end
+end 
 
-for(genvar O = 0; O < NUM_OUTPUTS; O++) begin
+for (genvar O = 0; O < NUM_OUTPUTS; O++) begin
     TaggedMultiplexer #(
         .data_t(data_t),
         .ID(O),
@@ -79,6 +81,8 @@ for(genvar O = 0; O < NUM_OUTPUTS; O++) begin
         .in(mux_in[O]),
         .out(out[O])
     );
-end
+end 
+
+endgenerate
 
 endmodule
