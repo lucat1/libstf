@@ -9,8 +9,8 @@
 module NDataToAXI #(
     parameter type data_t,
     parameter NUM_ELEMENTS,
-    parameter DATA_WIDTH = $bits(data_t),
-    parameter AXI_WIDTH = DATA_WIDTH * NUM_ELEMENTS
+    parameter NUM_AXI_ELEMENTS = NUM_ELEMENTS,
+    parameter AXI_WIDTH = $bits(data_t) * NUM_AXI_ELEMENTS
 ) (
     input logic clk,
     input logic rst_n,
@@ -20,13 +20,17 @@ module NDataToAXI #(
     AXI4S.m out // #(AXI_WIDTH)
 );
 
-localparam DATA_SIZE = DATA_WIDTH / 8;
+localparam AXI_ELEMENT_WIDTH = AXI_WIDTH / NUM_AXI_ELEMENTS;
+localparam AXI_ELEMENT_SIZE = AXI_ELEMENT_WIDTH / 8;
+
+`ASSERT_ELAB($bits(data_t) <= AXI_ELEMENT_WIDTH)
+`ASSERT_ELAB(NUM_ELEMENTS == NUM_AXI_ELEMENTS)
 
 assign in.ready = out.tready;
 
 for (genvar I = 0; I < NUM_ELEMENTS; I++) begin
-    for (genvar J = 0; J < DATA_SIZE; J++) begin
-        assign out.tkeep[I * DATA_SIZE + J] = in.keep[I];
+    for (genvar J = 0; J < AXI_ELEMENT_SIZE; J++) begin
+        assign out.tkeep[I * AXI_ELEMENT_SIZE + J] = in.keep[I];
     end
 end
 
@@ -56,6 +60,7 @@ module AXIToNData #(
 localparam AXI_ELEMENT_WIDTH = AXI_WIDTH / NUM_AXI_ELEMENTS;
 localparam AXI_ELEMENT_SIZE = AXI_ELEMENT_WIDTH / 8;
 
+`ASSERT_ELAB($bits(data_t) <= AXI_ELEMENT_WIDTH)
 `ASSERT_ELAB(NUM_ELEMENTS == NUM_AXI_ELEMENTS || NUM_ELEMENTS == NUM_AXI_ELEMENTS / 2)
 
 AXI4S #(AXI_ELEMENT_WIDTH * NUM_ELEMENTS) internal(.aclk(clk));
