@@ -12,7 +12,7 @@ module MemConfig #(
     input logic rst_n,
 
     config_i.s   conf,
-    mem_config_i out[NUM_STREAMS]
+    mem_config_i.m out[NUM_STREAMS]
 );
 
 localparam NUM_REGISTERS = 2;

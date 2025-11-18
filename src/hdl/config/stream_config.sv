@@ -11,7 +11,7 @@ module StreamConfig #(
     input logic rst_n,
 
     config_i.s      conf,
-    stream_config_i out[NUM_STREAMS] // #(SELECT_WIDTH)
+    stream_config_i.m out[NUM_STREAMS] // #(SELECT_WIDTH)
 );
 
 localparam SELECT_WIDTH = $clog2(NUM_SELECT);

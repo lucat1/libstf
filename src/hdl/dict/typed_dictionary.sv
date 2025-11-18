@@ -20,6 +20,8 @@ module TypedDictionary #(
     typed_ndata_i.m out        // #(DATABEAT_SIZE)
 );
 
+`ASSERT_ELAB(DATABEAT_SIZE == NUM_ELEMENTS * TYPED_DICTIONARY_DATA_SIZE)
+
 valid_i #(type_t) typ ();
 always_ff @(posedge clk) begin
     if (rst_n == 1'b0) begin
@@ -80,10 +82,10 @@ always_ff @(posedge clk) begin
         state <= '{valid: 0, data: '0, keep: '0, last: 0};
     end else begin
         // If the in/out type is 64 bits wide, we can produce two output
-        // databeats for each in_values databeat. As such, we must buffer the
-        // second half of the databeat and provide it as input to the dictionary
-        // decoder in the next batch. This will be done by the the
-        // combinatorial logic.
+        // databeats for each in_values databeat (if we have NUM_ELEMENTS
+        // ids). As such, we must buffer the second half of the databeat
+        // and provide it as input to the dictionary decoder in the next batch.
+        // This will be done by the the combinatorial logic.
         if (typ.valid && GET_TYPE_WIDTH(typ.data) == 64 && dictionary_in_ids.ready && dictionary_in_ids.valid) begin
             if (state.valid) begin
                 // The buffered in_values data has been consumed (since we
@@ -148,7 +150,7 @@ Dictionary #(
     .id_t(id_t),
     .NUM_ELEMENTS(NUM_ELEMENTS),
     .NUM_BANKS(NUM_BANKS)
-) dictionary_inst (
+) inst_dictionary (
     .clk(clk),
     .rst_n(rst_n),
 
