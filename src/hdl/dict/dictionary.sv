@@ -41,7 +41,7 @@ localparam LOG_MAX_IN_TRANSIT = $clog2(MAX_IN_TRANSIT);
 localparam SERIAL_WIDTH = LOG_MAX_IN_TRANSIT + LOG_NUM_ELEMENTS;
 
 typedef logic[SERIAL_WIDTH - 1:0]            full_serial_t;
-typedef logic[8 - 1:0]      serial_t;
+typedef logic[LOG_MAX_IN_TRANSIT - 1:0]      serial_t;
 typedef logic[ID_BITS - LOG_NUM_BANKS - 1:0] bank_id_t;
 
 typedef struct packed {
@@ -58,8 +58,6 @@ typedef struct packed {
     value_t  value;
     serial_t serial;
 } serial_value_t;
-
-logic credit_return;
 
 ndata_i  #(value_t, NUM_BANKS) values_converted();
 
@@ -118,7 +116,7 @@ Creditor #(
     .in(in_ids),
     .out(creditor_out),
 
-    .credit_return(credit_return)
+    .credit_return(out.valid && out.ready)
 );
 
 SerialDecoupler #(

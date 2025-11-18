@@ -16,12 +16,15 @@ module Creditor #(
     input logic credit_return
 );
 
+assert property (@(posedge clk) disable iff (!rst_n) !$isunknown(credit_return))
+else $fatal(1, "Credit return signal cannot be undefined!");
+
 logic[$clog2(MAX_IN_TRANSIT):0] credit_count, n_credit_count;
 logic has_credit;
 
 always_ff @(posedge clk) begin
     if(!rst_n) begin
-        credit_count <= MAX_IN_TRANSIT;
+        credit_count <= MAX_IN_TRANSIT - 1;
     end else begin
         credit_count <= n_credit_count;
     end
@@ -31,7 +34,7 @@ always_comb begin
     n_credit_count = credit_count;
 
     if (in.valid && out.ready) begin
-        if (!credit_return) begin
+        if (has_credit && !credit_return) begin
             n_credit_count = credit_count - 1;
         end
     end else begin
@@ -41,13 +44,13 @@ always_comb begin
     end
 end
 
-assign has_credit = ~(credit_count == 0) || credit_return;
+assign has_credit = !(credit_count == 0);
 
-assign in.ready = has_credit ? out.ready : 1'b0;
+assign in.ready = has_credit || credit_return ? out.ready : 1'b0;
 
 assign out.data  = in.data;
 assign out.keep  = in.keep;
 assign out.last  = in.last;
-assign out.valid = has_credit ? in.valid : 1'b0;
+assign out.valid = has_credit || credit_return ? in.valid : 1'b0;
 
 endmodule
