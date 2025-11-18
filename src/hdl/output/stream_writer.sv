@@ -41,7 +41,7 @@ module StreamWriter #(
     metaIntf.s cq_wr,
     metaIntf.m notify, // This module triggers an interrupt when all transfers are done
 
-    mem_config_i mem_config,
+    mem_config_i.s mem_config,
 
     AXI4S.s  input_data,
     AXI4SR.m output_data

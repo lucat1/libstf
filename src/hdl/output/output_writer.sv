@@ -22,7 +22,7 @@ module OutputWriter (
     metaIntf.s cq_wr,
     metaIntf.m notify,
 
-    mem_config_i mem_config[N_STRM_AXI],
+    mem_config_i.s mem_config[N_STRM_AXI],
 
     AXI4S.s  data_in[N_STRM_AXI],
     AXI4SR.m data_out[N_STRM_AXI]
