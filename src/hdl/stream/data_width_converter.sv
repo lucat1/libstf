@@ -62,9 +62,9 @@ always_comb begin
     if (out.ready) begin
         if (in.valid) begin
             if (!in.last) begin
-                n_is_upper <= ~is_upper;
+                n_is_upper = ~is_upper;
             end else begin
-                n_is_upper <= 1'b0;
+                n_is_upper = 1'b0;
             end
         end
 

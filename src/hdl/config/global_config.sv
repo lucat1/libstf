@@ -128,20 +128,13 @@ ConfigSplitter #(
 // Read process
 assign slv_reg_rden = axi_arready & axi_ctrl.arvalid & ~axi_rvalid;
 
-/*always_ff @(posedge clk) begin
+always_ff @(posedge clk) begin
   if(reset_synced == 1'b0) begin
     axi_rdata <= 0;
   end else begin
     if(slv_reg_rden) begin
-      // All read registers are handled manually below.
-      //
-      // The reason is that:
-      // 1. The number of read registers is very limited.
-      // 2. If we where to handle them through slv_reg we would get multi-driver issues.
-      //
-      // Note: Only manual registers can be read registers atm.
-      if (axi_araddr[ADDR_LSB+:ADDR_MSB] == REQUIRED_CYCLES_REG) begin
-        axi_rdata <= required_cycles;
+      if (axi_araddr[ADDR_LSB+:ADDR_MSB] == 0) begin
+        // axi_rdata <= required_cycles; TODO: Add reading from registers
     `ifndef SYNTHESIS
       end else begin
         $display("DID NOT FIND A MATCH FOR READING FROM reg %d", axi_araddr[ADDR_LSB+:ADDR_MSB]);
@@ -149,7 +142,7 @@ assign slv_reg_rden = axi_arready & axi_ctrl.arvalid & ~axi_rvalid;
       end
     end
   end
-end*/
+end
 
 // --------------------------------------------------------------------------------------
 // AXI CTRL - Don't edit!

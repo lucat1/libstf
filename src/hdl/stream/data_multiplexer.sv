@@ -38,6 +38,12 @@ for (genvar I = 0; I < NUM_STREAMS; I++) begin
 end
 
 always_comb begin
+    // We need to provide default values to prevent latch inference
+    out.data  = 'x;
+    out.keep  = 'x;
+    out.last  = 1'bx;
+    out.valid = 1'b0;
+
     if (select.valid) begin
         for (int i = 0; i < NUM_STREAMS; i++) begin
             if (selected[i]) begin
@@ -47,8 +53,6 @@ always_comb begin
                 out.valid = in_valid[i];
             end
         end
-    end else begin
-        out.valid = 1'b0;
     end
 end
 
