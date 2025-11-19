@@ -13,7 +13,7 @@ always_comb cq_rd.tie_off_s();
 always_comb cq_wr.tie_off_s();
 
 for (genvar I = 2; I < N_STRM_AXI; I++) begin
-    always_comb axis_host_recv[0].tie_off_s();
+    always_comb axis_host_recv[I].tie_off_s();
 end
 
 // -- Types ----------------------------------------------------------------------------------------
