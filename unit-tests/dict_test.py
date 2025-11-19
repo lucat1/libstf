@@ -54,14 +54,15 @@ class DictTest(fpga_test_case.FPGATestCase):
             "Cannot have dictionary test with empty dictionary expression!"
         )
 
-        stream_type = self.expression.values[0].stream_type()
-        assert get_bytes_for_stream_type(stream_type) in (4, 8), (
-            "Only 32bit and 64bit columns are supported by dictionary"
-        )
-        type_reg = stream_type_to_libstf_type_t(stream_type)
-
         # Configuration
-        self.write_register(fpga_register.vFPGARegister(1, bytearray([type_reg])))
+        for values in self.expression.values:
+            stream_type = values.stream_type()
+            assert get_bytes_for_stream_type(stream_type) in (4, 8), (
+                "Only 32bit and 64bit columns are supported by dictionary"
+            )
+            type_reg = stream_type_to_libstf_type_t(stream_type)
+
+            self.write_register(fpga_register.vFPGARegister(1, bytearray([type_reg])))
 
         # Set the input data
         for values in self.expression.values:

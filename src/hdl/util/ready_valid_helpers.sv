@@ -15,25 +15,25 @@ module ReadyValidDuplicator #(
 );
 
 logic[NUM_INTERFACES - 1:0] out_ready;
-logic[NUM_INTERFACES - 1:0] mask, n_mask;
+logic[NUM_INTERFACES - 1:0] seen, n_seen;
 
-assign in.ready = &out_ready;
+assign in.ready = &(seen | out_ready);
 
 always_ff @(posedge clk) begin
     if(!rst_n) begin
-        mask <= '1;     
+        seen <= '0;     
     end else begin
-        mask <= n_mask;
+        seen <= n_seen;
     end
 end
 
 always_comb begin
-    n_mask = mask;
+    n_seen = seen;
 
     if (in.ready) begin
-        n_mask = '1;
+        n_seen = '0;
     end else begin
-        n_mask = mask & ~out_ready;
+        n_seen = seen | out_ready;
     end
 end
 
@@ -41,7 +41,7 @@ for (genvar I = 0; I < NUM_INTERFACES; I++) begin
     assign out_ready[I] = out[I].ready;
 
     assign out[I].data  = in.data;
-    assign out[I].valid = in.valid && mask[I];
+    assign out[I].valid = in.valid && !seen[I];
 end
 
 endmodule

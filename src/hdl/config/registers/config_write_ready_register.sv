@@ -6,13 +6,13 @@
  */
 module ConfigWriteReadyRegister #(
     parameter integer ADDR,
-    parameter type    TYPE
+    parameter type    data_t
 ) (
     input logic clk,
     input logic rst_n,
 
     config_i.s      conf,
-    ready_valid_i.m data // #(TYPE)
+    ready_valid_i.m data // #(data_t)
 );
 
 always_ff @(posedge clk) begin
@@ -20,7 +20,7 @@ always_ff @(posedge clk) begin
         data.valid <= 1'b0;
     end else begin
         if (conf.valid && conf.addr == ADDR) begin
-            data.data  <= TYPE'(conf.data);
+            data.data  <= data_t'(conf.data);
             data.valid <= 1'b1;
         end else if (data.ready) begin
             data.valid <= 1'b0;

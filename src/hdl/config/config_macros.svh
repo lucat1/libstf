@@ -4,7 +4,7 @@
 `define CONFIG_WRITE_REGISTER(ADDRESS, DATA_TYPE, SIGNAL) \
 ConfigWriteRegister #(                                    \
     .ADDR(ADDRESS),                                       \
-    .TYPE(DATA_TYPE)                                      \
+    .data_t(DATA_TYPE)                                    \
 ) inst_config_write_reg_`__LINE__ (                       \
     .clk(clk),                                            \
     .conf(conf),                                          \
@@ -14,12 +14,24 @@ ConfigWriteRegister #(                                    \
 `define CONFIG_WRITE_READY_REGISTER(ADDRESS, DATA_TYPE, SIGNAL) \
 ConfigWriteReadyRegister #(                                     \
     .ADDR(ADDRESS),                                             \
-    .TYPE(DATA_TYPE)                                            \
+    .data_t(DATA_TYPE)                                          \
 ) inst_config_write_ready_reg_`__LINE__ (                       \
     .clk(clk),                                                  \
     .rst_n(rst_n),                                              \
     .conf(conf),                                                \
     .data(SIGNAL)                                               \
+);
+
+`define CONFIG_WRITE_FIFO(ADDRESS, FIFO_DEPTH, DATA_TYPE, SIGNAL) \
+ConfigWriteFIFO #(                                                \
+    .ADDR(ADDRESS),                                               \
+    .DEPTH(FIFO_DEPTH),                                           \
+    .data_t(DATA_TYPE)                                            \
+) inst_config_write_fifo_`__LINE__ (                              \
+    .clk(clk),                                                    \
+    .rst_n(rst_n),                                                \
+    .conf(conf),                                                  \
+    .data(SIGNAL)                                                 \
 );
 
 `define CONFIG_INTF_TO_SIGNALS(INTF, SIGNALS) \

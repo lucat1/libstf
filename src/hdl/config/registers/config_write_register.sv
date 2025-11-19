@@ -2,17 +2,17 @@
 
 module ConfigWriteRegister #(
     parameter integer ADDR,
-    parameter type    TYPE
+    parameter type    data_t
 ) (
     input logic clk,
 
-    config_i.s  conf,
-    output TYPE data
+    config_i.s    conf,
+    output data_t data
 );
 
 always_ff @(posedge clk) begin
     if (conf.valid && conf.addr == ADDR) begin
-        data <= conf.data;
+        data <= data_t'(conf.data);
     end
 end
 
