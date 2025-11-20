@@ -13,11 +13,13 @@ module ResetResync (
 );
 
 // Initialize as not reset
-logic  reset_buffer = 1'b1;
+logic[1:0] reset_buffer = '0;
 
 always_ff @(posedge clk) begin
-    reset_buffer <= reset_in;
-    reset_out    <= reset_buffer;
+    reset_buffer[0] <= reset_in;
+    reset_buffer[1] <= reset_buffer[0];
 end
+
+assign reset_out = reset_buffer[1];
 
 endmodule
