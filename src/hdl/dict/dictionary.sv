@@ -86,7 +86,7 @@ NDataWidthConverter #(
     .OUT_WIDTH(NUM_BANKS)
 ) inst_width_converter (
     .clk(clk),
-    .rst_n(rst_n),
+    .rst_n(reset_synced),
 
     .in(in_values),
     .out(values_converted)
@@ -97,7 +97,7 @@ Decoupler #(
     .NUM_ELEMENTS(NUM_BANKS)
 ) inst_value_decoupler (
     .clk(clk),
-    .rst_n(rst_n),
+    .rst_n(reset_synced),
 
     .in(values_converted),
     .out(value_decoupler_out)
@@ -111,7 +111,7 @@ Creditor #(
     .MAX_IN_TRANSIT(MAX_IN_TRANSIT)
 ) inst_creditor (
     .clk(clk),
-    .rst_n(rst_n),
+    .rst_n(reset_synced),
 
     .in(in_ids),
     .out(creditor_out),
@@ -125,7 +125,7 @@ SerialDecoupler #(
     .SERIAL_WIDTH(SERIAL_WIDTH)
 ) inst_id_decoupler (
     .clk(clk),
-    .rst_n(rst_n),
+    .rst_n(reset_synced),
 
     .in(creditor_out),
     .out(decoupler_out)
