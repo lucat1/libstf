@@ -1,8 +1,8 @@
 from coyote_test import constants, io_writer
-from utils.fpga_configuration import MemConfig
+from libstf_utils.fpga_configuration import MemConfig
 from typing import Dict, Tuple, List
 from collections.abc import Callable
-from utils.common import (
+from libstf_utils.common import (
     MEMORY_BYTES_PER_FPGA_TRANSFER,
     INTERRUPT_STREAM_ID_BITS,
     INTERRUPT_TRANSFER_SIZE_BITS,

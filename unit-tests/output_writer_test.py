@@ -1,8 +1,8 @@
 from typing import List
 from coyote_test import constants
 from unit_test.fpga_stream import Stream, StreamType
-from utils.output_writer_test_case import OutputWriterPerformanceTestCase, OutputWriterTestCase
-from utils.memory_manager import FPGAOutputMemoryManager
+from libstf_utils.output_writer_test_case import OutputWriterPerformanceTestCase, OutputWriterTestCase
+from libstf_utils.memory_manager import FPGAOutputMemoryManager
 
 MAX_NUMBER_STREAMS = constants.MAX_NUMBER_STREAMS
 TRANSFER_SIZE_BYTES_OVERWRITE = "TRANSFER_SIZE_BYTES_OVERWRITE"

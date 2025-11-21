@@ -1,7 +1,7 @@
 from coyote_test import constants, fpga_register
 from typing import List
 from unit_test.fpga_stream import StreamType
-from utils.common import INTERRUPT_TRANSFER_SIZE_BITS
+from libstf_utils.common import INTERRUPT_TRANSFER_SIZE_BITS
 
 
 # Most general configuration class

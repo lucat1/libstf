@@ -8,7 +8,7 @@ from coyote_test import (
     io_writer,
 )
 from unit_test.utils.thread_handler import SafeThread
-from utils.memory_manager import FPGAOutputMemoryManager
+from libstf_utils.memory_manager import FPGAOutputMemoryManager
 from typing import Union, List, Dict, Optional
 import threading
 
