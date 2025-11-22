@@ -113,8 +113,10 @@ interface ntagged_i #(
     parameter TAG_WIDTH,
     parameter NUM_ELEMENTS
 );
+    typedef logic[TAG_WIDTH - 1:0] tag_t;
+
     data_t[NUM_ELEMENTS - 1:0] data;
-    logic[TAG_WIDTH - 1:0]     tag[NUM_ELEMENTS];
+    tag_t[NUM_ELEMENTS - 1:0]  tag;
     logic[NUM_ELEMENTS - 1:0]  keep;
     logic                      last;
     logic                      valid;
