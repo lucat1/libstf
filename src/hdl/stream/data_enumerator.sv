@@ -10,8 +10,8 @@ module DataEnumerator #(
     input logic clk,
     input logic rst_n,
 
-    ndata_i.s   in,  // #(data_t, NUM_ELEMENTS)
-    ntagged_i.m out, // #(data_t, NUM_ELEMENTS, SERIAL_WIDTH)
+    ndata_i.s   in, // #(data_t, NUM_ELEMENTS)
+    ntagged_i.m out // #(data_t, NUM_ELEMENTS, SERIAL_WIDTH)
 );
 
 `RESET_RESYNC // Reset pipelining
