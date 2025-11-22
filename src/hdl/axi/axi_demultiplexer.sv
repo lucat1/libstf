@@ -1,5 +1,11 @@
 `timescale 1ns / 1ps
 
+import libstf::*;
+
+/**
+ * Demultiplexes one input AXI stream into a set of output AXI streams based on a select 
+ * configuration.
+ */
 module AXIDemultiplexer #(
     parameter NUM_STREAMS
 ) (
@@ -12,51 +18,33 @@ module AXIDemultiplexer #(
     AXI4S.m out[NUM_STREAMS]
 );
 
-typedef logic[$clog2(NUM_STREAMS) - 1:0] select_t;
+ndata_i #(data8_t, AXI_DATA_BITS / 8) in_data();
+ndata_i #(data8_t, AXI_DATA_BITS / 8) out_data[NUM_STREAMS]();
 
-// If we don't pull this into an internal register we have to assign valid to ready which is bad
-select_t select_reg; 
-logic    select_reg_valid;
+assign in_data.data  = in.tdata;
+assign in_data.keep  = in.tkeep;
+assign in_data.last  = in.tlast;
+assign in_data.valid = in.tvalid;
+assign in.tready     = in_data.ready;
 
-logic selected_stream_ready;
-logic[NUM_STREAMS - 1:0] is_selected, stream_ready;
-logic was_last_data_beat;
+DataDemultiplexer #(
+    .NUM_STREAMS(NUM_STREAMS)
+) inst_values_demux (
+    .clk(clk),
+    .rst_n(rst_n),
 
-always_ff @(posedge clk) begin
-    if (rst_n == 1'b0) begin
-        select_reg_valid <= 1'b0;
-    end else begin
-        if (select.valid) begin
-            if (select.ready) begin
-                select_reg       <= select.data;
-                select_reg_valid <= 1'b1;
-            end
-        end else begin
-            select_reg <= select_reg;
+    .select(select),
 
-            if (was_last_data_beat) begin
-                select_reg_valid <= '0;
-            end else begin
-                select_reg_valid <= select_reg_valid;
-            end
-        end
-    end
-end
-
-assign selected_stream_ready = select_reg_valid && |(is_selected & stream_ready);
-assign was_last_data_beat    = in.tvalid && in.tlast && selected_stream_ready;
-assign select.ready = !select_reg_valid || was_last_data_beat;
-
-assign in.tready = selected_stream_ready;
+    .in(in_data),
+    .out(out_data)
+);
 
 for (genvar I = 0; I < NUM_STREAMS; I++) begin
-    assign is_selected[I]  = I == select_reg;
-    assign stream_ready[I] = out[I].tready;
-
-    assign out[I].tdata  = in.tdata;
-    assign out[I].tkeep  = in.tkeep;
-    assign out[I].tlast  = in.tlast;
-    assign out[I].tvalid = in.tvalid && select_reg_valid && is_selected[I];
+    assign out[I].tdata      = out_data[I].data;
+    assign out[I].tkeep      = out_data[I].keep;
+    assign out[I].tlast      = out_data[I].last;
+    assign out[I].tvalid     = out_data[I].valid;
+    assign out_data[I].ready = out[I].tready;
 end
 
 endmodule
