@@ -7,35 +7,36 @@ import libstf::*;
 `include "lynx_macros.svh"
 `include "libstf_macros.svh"
 
-// This module takes the data from input_data and transfers them to the memory regions
-// provided by input_mem via FPGA-initiated transfers. These transfers are triggered via
-// the sq_wr interface, and acknowledged from the host via cw_wr.
-// Should the available memory region, provided via input_mem, become full or the input
-// be read fully, a interrupt is triggered for the host. The host than can act accordingly
-// and, e.g., allocate more memory.
-//
-// This component allows the following configurations:
-// STRM                  = The kind of Coyote stream. One of: STRM_CARD, STRM_HOST, STRM_TCP, or STRM_RDMA
-// AXI_STRM_ID           = Id of the stream the data will be send on
-// IS_LOCAL              = Whether this is a LOCAL_TRANSFER, i.e. between FPGA and host (1) or if RDMA is used (0)
-// TRANSFER_LENGTH_BYTES = How many bytes each transfer to the host should have
-//
-// The output_data port should be connected to the AXI stream of the stream as configured via the
-// STRM parameter.
-//
-// IMPORTANT:
-// This component assumes continuous data in the streams.
-// E.g. the keep signal should be all f, except for data beats that contain a last signal.
-// In other words: Writing data that is not all f and not last will result in UNEXPECTED behavior.
-//
+/**
+ * This module takes the data from input_data and transfers it to the memory regions provided by 
+ * mem_config via FPGA-initiated transfers. These transfers are triggered via the sq_wr interface 
+ * and acknowledged from the host via cq_wr.
+ * Should the available memory region, provided via mem_config, become full or the input_data assert 
+ * the last signal, an interrupt is triggered for the host. The host than can act accordingly and, 
+ * e.g., allocate more memory.
+ *
+ * This component allows the following configurations:
+ * STRM                  = The kind of Coyote stream. One of: STRM_CARD, STRM_HOST, STRM_TCP, or STRM_RDMA
+ * AXI_STRM_ID           = Id of the stream the data will be send on
+ * IS_LOCAL              = Whether this is a LOCAL_TRANSFER, i.e. between FPGA and host (1) or if RDMA is used (0)
+ * TRANSFER_LENGTH_BYTES = How many bytes each transfer to the host should have
+ *
+ * The output_data port should be connected to the AXI stream of the stream as configured via the
+ * STRM parameter.
+ *
+ * IMPORTANT:
+ * This component assumes normalized streams.
+ * E.g. the keep signal should be all 1s, except for data beats that contain a last signal.
+ * In other words: Writing data that is not all 1s and not last will result in UNEXPECTED behavior.
+ */
 module StreamWriter #(
     parameter STRM = STRM_HOST,
     parameter AXI_STRM_ID = 0,
     parameter IS_LOCAL = 1,
     parameter TRANSFER_LENGTH_BYTES = 4096
 ) (
-    input logic             clk,
-    input logic             rst_n,
+    input logic clk,
+    input logic rst_n,
 
     metaIntf.m sq_wr,
     metaIntf.s cq_wr,
@@ -52,6 +53,14 @@ module StreamWriter #(
 ready_valid_i #(buffer_t) buffer();
 `CONFIG_SIGNALS_TO_INTF(mem_config.buffer, buffer)
 
+// -- Assertions -----------------------------------------------------------------------------------
+assert property (@(posedge clk) disable iff (!reset_synced) 
+    !input_data.tvalid || input_data.tlast || &input_data.tkeep)
+else $fatal(1, "Non-last keep signal (%h) must be all 1s!", input_data.tkeep);
+assert property (@(posedge clk) disable iff (!reset_synced) 
+    !input_data.tvalid || !input_data.tlast || $onehot0(input_data.tkeep + 1'b1))
+else $fatal(1, "Last keep signal (%h) must be contiguous starting from the least significant bit!", input_data.tkeep);
+
 // Otherwise, the synthesis merges everything together and
 // the path becomes too long!
 AXI4S input_data_de_coupled(.aclk(clk));
@@ -65,8 +74,7 @@ AXISkidBuffer #(
     .out(input_data_de_coupled)
 );
 
-// ---- Assert parameters -------------------------------------------------------
-
+// -- Assert parameters ----------------------------------------------------------------------------
 localparam RDMA_WRITE = 7;
 localparam OPCODE = IS_LOCAL ? LOCAL_WRITE : RDMA_WRITE;
 // How many bits we need to address one transfer of size TRANSFER_LENGTH_BYTES

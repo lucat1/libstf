@@ -6,14 +6,15 @@ import lynxTypes::*;
 `include "axi_macros.svh"
 `include "libstf_macros.svh"
 
-// This module handles writes to N_STRM_AXI AXI4S streams.
-// It transfers the output to the host via FPGA-initiated transfers.
-//
-// IMPORTANT:
-// This component assumes normalized streams.
-// E.g. the keep signal should be all 1f, except for data beats that contain a last signal.
-// In other words: Writing data that is not all 1 and not last will result in UNEXPECTED behavior.
-//
+/**
+ * This module handles N_STRM_AXI output AXI4S streams. It transfers the output to the host via 
+ * FPGA-initiated transfers.
+ *
+ * IMPORTANT:
+ * This component assumes normalized streams.
+ * E.g. the keep signal should be all 1s, except for data beats that contain a last signal.
+ * In other words: Writing data that is not all 1s and not last will result in UNEXPECTED behavior.
+ */
 module OutputWriter (
     input logic clk,
     input logic rst_n,
@@ -29,6 +30,15 @@ module OutputWriter (
 );
 
 `RESET_RESYNC // Reset pipelining
+
+for(genvar I = 0; I < N_STRM_AXI; I++) begin
+    assert property (@(posedge clk) disable iff (!reset_synced) 
+        !data_in[I].tvalid || data_in[I].tlast || &data_in[I].tkeep)
+    else $fatal(1, "Non-last keep signal (%h) must be all 1s!", data_in[I].tkeep);
+    assert property (@(posedge clk) disable iff (!reset_synced) 
+        !data_in[I].tvalid || !data_in[I].tlast || $onehot0(data_in[I].tkeep + 1'b1))
+    else $fatal(1, "Last keep signal (%h) must be contiguous starting from the least significant bit!", data_in[I].tkeep);
+end
 
 // -- De-mux and arbiter the queue and notify signals ----------------------------------------------
 metaIntf #(.STYPE(req_t))     sq_wr_strm  [N_STRM_AXI](.aclk(clk));
@@ -66,6 +76,7 @@ MetaIntfArbiter #(
 
 // -- FPGA-initiated transfers ---------------------------------------------------------------------
 for(genvar I = 0; I < N_STRM_AXI; I++) begin
+`ifndef DISABLE_OUTPUT_WRITER
     AXI4S #(.AXI4S_DATA_BITS(512)) data_in_skid (.aclk(clk));
 
     // Skid buffer to ease routing
@@ -78,7 +89,7 @@ for(genvar I = 0; I < N_STRM_AXI; I++) begin
         .out(data_in_skid)
     );
 
-    // Invoke the FPGA-initiated transfers for this stream!
+    // Invoke the FPGA-initiated transfers for this stream
     StreamWriter #(
         .AXI_STRM_ID(I),
         .TRANSFER_LENGTH_BYTES(TRANSFER_SIZE_BYTES)
@@ -95,6 +106,16 @@ for(genvar I = 0; I < N_STRM_AXI; I++) begin
         .input_data(data_in_skid),
         .output_data(data_out[I])
     );
+`else
+    // The output writer can be disabled for certain test cases.
+    // In this case, we simply pipe through all the data
+    `AXIS_ASSIGN(data_in[I], data_out[I]);
+
+    // Tie of the interfaces we don't need
+    always_comb sq_wr_strm[I].tie_off_m();
+    always_comb notify_strm[I].tie_off_m();
+    always_comb cq_wr_strm[I].tie_off_s();
+`endif
 end
 
 endmodule
