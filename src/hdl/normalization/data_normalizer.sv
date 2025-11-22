@@ -95,6 +95,7 @@ always_ff @(posedge clk) begin
                             if (register_and_shifted_keep == 0) begin // All remaining data leaves this cycle, so this is last anyway
                                 out.last <= 1;
                             end else begin // Set flag so that next cycle will write output register
+                                out.last      <= 0;
                                 register.last <= 1;
                             end
                         end else begin
