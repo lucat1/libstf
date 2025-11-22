@@ -32,7 +32,7 @@ always_comb begin
 
     if (in.ready) begin
         n_seen = '0;
-    end else begin
+    end else if (in.valid) begin
         n_seen = seen | out_ready;
     end
 end
