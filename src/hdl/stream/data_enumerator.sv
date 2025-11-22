@@ -2,6 +2,12 @@
 
 `include "libstf_macros.svh"
 
+/**
+ * This module enumerates the elements of the stream with a high keep signal and returns a tagged 
+ * stream with the tags containing the indices.
+ *
+ * The keep signal has to be contiguous starting from the least significant bit.
+ */
 module DataEnumerator #(
     parameter type data_t,
     parameter NUM_ELEMENTS,
@@ -15,6 +21,9 @@ module DataEnumerator #(
 );
 
 `RESET_RESYNC // Reset pipelining
+
+assert property (@(posedge clk) disable iff (!reset_synced) !in.valid || $onehot0(in.keep + 1'b1))
+else $fatal(1, "Incoming keep signal (%h) most be contiguous starting from the least significant bit!", in.keep);
 
 localparam ELEMENT_BITS = $clog2(NUM_ELEMENTS);
 
@@ -30,7 +39,7 @@ always_ff @(posedge clk) begin
     end else begin
         if (in.valid && in.ready) begin
             if (!in.last) begin
-                serial_count <= serial_count + 1;
+                serial_count <= serial_count + $countones(in.keep);
             end else begin
                 serial_count <= '0;
             end
@@ -41,7 +50,7 @@ always_ff @(posedge clk) begin
 end
 
 for (genvar I = 0; I < NUM_ELEMENTS; I++) begin
-    assign out.tag[I] = (serial_count << ELEMENT_BITS) + I;
+    assign out.tag[I] = serial_count + I;
 end
 
 assign out.data  = in.data;
