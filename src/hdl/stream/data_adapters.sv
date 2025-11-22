@@ -5,12 +5,14 @@
 
 /**
  * Converts a ndata stream to an AXI stream.
+ *
+ * Hint: Currently supports same number of input and output elements and doubling the stream width.
  */
 module NDataToAXI #(
     parameter type data_t,
     parameter NUM_ELEMENTS,
-    parameter NUM_AXI_ELEMENTS = NUM_ELEMENTS,
-    parameter AXI_WIDTH = $bits(data_t) * NUM_AXI_ELEMENTS
+    parameter AXI_WIDTH = AXI_DATA_BITS,
+    parameter NUM_AXI_ELEMENTS = AXI_WIDTH / $bits(data_t)
 ) (
     input logic clk,
     input logic rst_n,
@@ -23,31 +25,53 @@ module NDataToAXI #(
 localparam AXI_ELEMENT_WIDTH = AXI_WIDTH / NUM_AXI_ELEMENTS;
 localparam AXI_ELEMENT_SIZE = AXI_ELEMENT_WIDTH / 8;
 
+`ASSERT_ELAB(AXI_WIDTH == AXI_ELEMENT_WIDTH * NUM_AXI_ELEMENTS)
 `ASSERT_ELAB($bits(data_t) <= AXI_ELEMENT_WIDTH)
-`ASSERT_ELAB(NUM_ELEMENTS == NUM_AXI_ELEMENTS)
+`ASSERT_ELAB(NUM_ELEMENTS == NUM_AXI_ELEMENTS || 2 * NUM_ELEMENTS == NUM_AXI_ELEMENTS)
 
-assign in.ready = out.tready;
+ndata_i #(data_t, NUM_AXI_ELEMENTS) internal();
 
-for (genvar I = 0; I < NUM_ELEMENTS; I++) begin
+generate if (NUM_ELEMENTS == NUM_AXI_ELEMENTS) begin
+    `DATA_ASSIGN(in, internal);
+end else begin
+    NDataWidthConverter #(
+        .data_t(data_t),
+        .IN_WIDTH(NUM_ELEMENTS),
+        .OUT_WIDTH(NUM_AXI_ELEMENTS)
+    ) inst_width_converter (
+        .clk(clk),
+        .rst_n(rst_n),
+
+        .in(in),
+        .out(internal)
+    );
+end endgenerate
+
+assign internal.ready = out.tready;
+
+for (genvar I = 0; I < NUM_AXI_ELEMENTS; I++) begin
+    assign out.tdata[I * AXI_ELEMENT_WIDTH+:AXI_ELEMENT_WIDTH] = AXI_ELEMENT_WIDTH'(internal.data[I]);
+
     for (genvar J = 0; J < AXI_ELEMENT_SIZE; J++) begin
-        assign out.tkeep[I * AXI_ELEMENT_SIZE + J] = in.keep[I];
+        assign out.tkeep[I * AXI_ELEMENT_SIZE + J] = internal.keep[I];
     end
 end
 
-assign out.tdata  = in.data;
-assign out.tlast  = in.last;
-assign out.tvalid = in.valid;
+assign out.tlast  = internal.last;
+assign out.tvalid = internal.valid;
 
 endmodule
 
 /**
  * Converts an AXI stream to a ndata stream.
+ *
+ * Hint: Currently supports same number of input and output elements and halving the stream width.
  */
 module AXIToNData #(
     parameter type data_t,
     parameter NUM_ELEMENTS,
-    parameter NUM_AXI_ELEMENTS = NUM_ELEMENTS,
-    parameter AXI_WIDTH = $bits(data_t) * NUM_AXI_ELEMENTS
+    parameter AXI_WIDTH = AXI_DATA_BITS,
+    parameter NUM_AXI_ELEMENTS = AXI_WIDTH / $bits(data_t)
 ) (
     input logic clk,
     input logic rst_n,
@@ -60,6 +84,7 @@ module AXIToNData #(
 localparam AXI_ELEMENT_WIDTH = AXI_WIDTH / NUM_AXI_ELEMENTS;
 localparam AXI_ELEMENT_SIZE = AXI_ELEMENT_WIDTH / 8;
 
+`ASSERT_ELAB(AXI_WIDTH == AXI_ELEMENT_WIDTH * NUM_AXI_ELEMENTS)
 `ASSERT_ELAB($bits(data_t) <= AXI_ELEMENT_WIDTH)
 `ASSERT_ELAB(NUM_ELEMENTS == NUM_AXI_ELEMENTS || NUM_ELEMENTS == NUM_AXI_ELEMENTS / 2)
 

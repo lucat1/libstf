@@ -42,7 +42,7 @@ generate if (IN_WIDTH == 512 && OUT_WIDTH == 256) begin // Downsize
         end
     end
 
-    assign in.tready = out.tready && beat_done;
+    assign in.tready = out.tready && (!in.tvalid || beat_done == 1'b1);
 
     assign out.tdata  = in.tdata[256 * is_upper+:256];
     assign out.tkeep  = in.tkeep[32 * is_upper+:32];
