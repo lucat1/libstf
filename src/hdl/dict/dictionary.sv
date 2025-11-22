@@ -119,7 +119,7 @@ Creditor #(
     .credit_return(out.valid && out.ready)
 );
 
-SerialDecoupler #(
+ReorderDecoupler #(
     .data_t(id_t),
     .NUM_ELEMENTS(NUM_ELEMENTS),
     .SERIAL_WIDTH(SERIAL_WIDTH)

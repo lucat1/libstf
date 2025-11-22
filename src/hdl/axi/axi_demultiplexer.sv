@@ -1,6 +1,7 @@
 `timescale 1ns / 1ps
 
 import libstf::*;
+import lynxTypes::*;
 
 /**
  * Demultiplexes one input AXI stream into a set of output AXI streams based on a select 
