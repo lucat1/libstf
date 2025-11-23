@@ -19,7 +19,7 @@ module TaggedMultiplexer #(
     input logic rst_n,
 
     tagged_i.s in[NUM_INPUTS], // #(data_t, TAG_WIDTH)
-    data_i.m  out              // #(data_t)
+    data_i.m   out              // #(data_t)
 );
 
 // Note: WAIT_ALL breaks the stream semantics because it may produce dummy last elements in the output
@@ -65,8 +65,14 @@ for(genvar I = 0; I < NUM_INPUTS; I++) begin
 end
 
 always_comb begin
-    for (int i = 0; i < NUM_INPUTS; i++) begin
-        in_ready[i] = 1'b1;
+    // If we wait for all last signals, the inputs where we have seen the last belong to the next 
+    // stream and cannot yet be consumed
+    if (LAST_HANDLING == WAIT_ALL) begin
+        in_ready = ~last_seen;
+    end else begin
+        for (int i = 0; i < NUM_INPUTS; i++) begin
+            in_ready[i] = 1'b1;
+        end
     end
 
     n_last_seen = last_seen;
@@ -80,10 +86,6 @@ always_comb begin
         for (int i = 0; i < NUM_INPUTS; i++) begin
             if (in_valid[i]) begin
                 if ((!FILTER_KEEP || in_keep[i]) && tag_matches[i]) begin
-                    if (last_seen[i]) begin // This is an element of the next stream which we cannot process yet
-                        in_ready[i] = 1'b0;
-                    end
-
                     if (suffix_sum[i] == 1) begin // This is the next element to be forwarded
                         n_skid.data  = in_data[i];
                         n_skid.keep  = in_keep[i];
@@ -103,7 +105,8 @@ always_comb begin
             end
         end
 
-        if (LAST_HANDLING == WAIT_ALL && (&last_seen || (suffix_sum[0] == 1 && &(last_seen | in_last)))) begin // We have seen all last signals or the last element is processed in this clock cycle
+        // We have seen all last signals or the last element is processed in this clock cycle
+        if (LAST_HANDLING == WAIT_ALL && (&last_seen || (suffix_sum[0] == 1 && &(last_seen | in_last)))) begin 
             n_last_seen  = '0;
             n_skid.last   = 1'b1;
             n_skid.valid  = 1'b1;
@@ -112,6 +115,10 @@ always_comb begin
         for (int i = 0; i < NUM_INPUTS; i++) begin
             if (tag_matches[i]) begin
                 in_ready[i] = 1'b0;
+            end else begin
+                if (LAST_HANDLING == WAIT_ALL && in_valid[i] && in_last[i]) begin
+                    n_last_seen[i] = 1'b1;
+                end
             end
         end
 

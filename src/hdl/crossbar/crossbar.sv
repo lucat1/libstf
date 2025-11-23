@@ -21,6 +21,7 @@ module Crossbar #(
 generate 
 
 tagged_i #(data_t, TAG_WIDTH) skid_pipe[NUM_INPUTS][NUM_SKID_BUFFERS + 1]();
+tagged_i #(data_t, TAG_WIDTH) duplicator_out[NUM_INPUTS][NUM_OUTPUTS]();
 tagged_i #(data_t, TAG_WIDTH) mux_in[NUM_OUTPUTS][NUM_INPUTS]();
 
 logic[NUM_INPUTS-1:0][NUM_OUTPUTS-1:0] mux_ready_transposed;
@@ -53,16 +54,24 @@ end
 
 // Multiplexers
 for (genvar I = 0; I < NUM_INPUTS; I++) begin
-    assign skid_pipe[I][NUM_SKID_BUFFERS].ready = &mux_ready_transposed[I];
+    TaggedDuplicator #(
+        .NUM_STREAMS(NUM_OUTPUTS)
+    ) inst_duplicator (
+        .clk(clk),
+        .rst_n(rst_n),
+
+        .in(skid_pipe[I][NUM_SKID_BUFFERS]),
+        .out(duplicator_out[I])
+    );
 
     for(genvar O = 0; O < NUM_OUTPUTS; O++) begin
-        assign mux_ready_transposed[I][O] = mux_in[O][I].ready;
+        assign duplicator_out[I][O].ready = mux_in[O][I].ready;
 
-        assign mux_in[O][I].data  = skid_pipe[I][NUM_SKID_BUFFERS].data;
-        assign mux_in[O][I].tag   = skid_pipe[I][NUM_SKID_BUFFERS].tag;
-        assign mux_in[O][I].keep  = skid_pipe[I][NUM_SKID_BUFFERS].keep;
-        assign mux_in[O][I].last  = skid_pipe[I][NUM_SKID_BUFFERS].last;
-        assign mux_in[O][I].valid = skid_pipe[I][NUM_SKID_BUFFERS].valid;
+        assign mux_in[O][I].data  = duplicator_out[I][O].data;
+        assign mux_in[O][I].tag   = duplicator_out[I][O].tag;
+        assign mux_in[O][I].keep  = duplicator_out[I][O].keep;
+        assign mux_in[O][I].last  = duplicator_out[I][O].last;
+        assign mux_in[O][I].valid = duplicator_out[I][O].valid;
     end
 end 
 
