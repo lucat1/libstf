@@ -266,6 +266,8 @@ assign is_completion = cq_wr.valid && cq_wr.data.strm == STRM && cq_wr.data.dest
 // -- Send queue requests --------------------------------------------------------------------------
 // Sends a request over transfers with at most TRANSFER_LENGTH_BYTES
 always_comb begin
+    sq_wr.data = '0; // Null everything else
+
     sq_wr.data.opcode = OPCODE;
     sq_wr.data.strm   = STRM;
     sq_wr.data.mode   = ~IS_LOCAL;

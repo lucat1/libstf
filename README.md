@@ -51,7 +51,6 @@ For now, we have a couple of code style rules:
 ## TODOs
 1. Get types and NUM_ELEMENTS from interface instead of parameters
 2. Add interface assertions
-3. Add a way to test 0-length streams
 
 ## License
 The libstf code is licensed under the terms in [LICENSE.md](https://github.com/fpgasystems/libstf/blob/master/LICENSE.md), which corresponds to the MIT Licence.

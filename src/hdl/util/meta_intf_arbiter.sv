@@ -83,6 +83,9 @@ endgenerate
 // Make the arbitration decision
 // ----------------------------------------------------------------------------
 always_comb begin
+    // Default to stream 0 if there is not a single valid buffer entry
+    input_stream_select = 0;
+
     if ((|buf_valid) == 1'b1) begin
         // If the stream we want has valid data, choose this stream!
         if (buf_valid[input_stream_rr_next]) begin
@@ -96,9 +99,6 @@ always_comb begin
                 end
             end
         end
-    end else begin
-        // Default to stream 0 if there is not a single valid buffer entry
-        input_stream_select = 0;
     end
 end
 
