@@ -34,8 +34,8 @@ RAM #(
     .DATA_WIDTH(RAM_WIDTH),
     .ADDR_WIDTH(SERIAL_WIDTH),
     .STYLE("ultra"),
-    .HAS_CACHE(1),
-    .HAS_BYPASS(1)
+    .READ_AFTER_WRITE(1),
+    .READ_DURING_WRITE(1)
 ) inst_ram (
     .clk(clk),
 
