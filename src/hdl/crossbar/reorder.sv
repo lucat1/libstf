@@ -33,7 +33,7 @@ assign in.ready = 1'b1;
 RAM #(
     .DATA_WIDTH(RAM_WIDTH),
     .ADDR_WIDTH(SERIAL_WIDTH),
-    .STYLE("ultra"),
+    .STYLE("block"),
     .READ_AFTER_WRITE(1),
     .READ_DURING_WRITE(1)
 ) inst_ram (
