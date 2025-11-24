@@ -50,10 +50,22 @@ module StreamWriter #(
 
 `RESET_RESYNC // Reset pipelining
 
-ready_valid_i #(buffer_t) buffer();
-`CONFIG_SIGNALS_TO_INTF(mem_config.buffer, buffer)
+// -- Parameters -----------------------------------------------------------------------------------
+localparam RDMA_WRITE = 7;
+localparam OPCODE = IS_LOCAL ? LOCAL_WRITE : RDMA_WRITE;
+// How many bits we need to address one transfer of size TRANSFER_LENGTH_BYTES
+localparam TRANSFER_ADDRESS_LEN_BITS = $clog2(TRANSFER_LENGTH_BYTES) + 1;
+localparam AXI_DATA_BYTES = (AXI_DATA_BITS / 8);
 
 // -- Assertions -----------------------------------------------------------------------------------
+
+// TRANSFER_LENGTH_BYTES must be a multiple of AXI_DATA_BYTES
+`ASSERT_ELAB(TRANSFER_LENGTH_BYTES % AXI_DATA_BYTES == 0)
+// This limitations is because we support only 3 bits for the stream identifier in the 
+// interrupt/notify value
+`ASSERT_ELAB(N_STRM_AXI <= 8)
+
+// Input stream
 assert property (@(posedge clk) disable iff (!reset_synced) 
     !input_data.tvalid || input_data.tlast || &input_data.tkeep)
 else $fatal(1, "Non-last keep signal (%h) must be all 1s!", input_data.tkeep);
@@ -61,99 +73,41 @@ assert property (@(posedge clk) disable iff (!reset_synced)
     !input_data.tvalid || !input_data.tlast || $onehot0(input_data.tkeep + 1'b1))
 else $fatal(1, "Last keep signal (%h) must be contiguous starting from the least significant bit!", input_data.tkeep);
 
-// Otherwise, the synthesis merges everything together and
-// the path becomes too long!
-AXI4S input_data_de_coupled(.aclk(clk));
-AXISkidBuffer #(
-    .AXI4S_DATA_BITS(512)
-) inst_skid_buffer (
-    .clk(clk),
-    .rst_n(reset_synced),
+// Allocations
+assert property (@(posedge clk) disable iff (!reset_synced) 
+    !buffer.valid || (buffer.data.size > 0 && buffer.data.size % TRANSFER_LENGTH_BYTES == 0))
+else $fatal(1, "Allocation size (%0d) must be > 0 and a multiple of TRANSFER_LENGTH_BYTES!", buffer.data.size);
 
-    .in(input_data),
-    .out(input_data_de_coupled)
-);
+// -- Configuration --------------------------------------------------------------------------------
+ready_valid_i #(buffer_t) buffer();
+`CONFIG_SIGNALS_TO_INTF(mem_config.buffer, buffer)
 
-// -- Assert parameters ----------------------------------------------------------------------------
-localparam RDMA_WRITE = 7;
-localparam OPCODE = IS_LOCAL ? LOCAL_WRITE : RDMA_WRITE;
-// How many bits we need to address one transfer of size TRANSFER_LENGTH_BYTES
-localparam TRANSFER_ADDRESS_LEN_BITS = $clog2(TRANSFER_LENGTH_BYTES) + 1;
-localparam AXI_DATA_BYTES = (AXI_DATA_BITS / 8);
-
-// Assert properties we assume in this module
-generate
-if (TRANSFER_LENGTH_BYTES % AXI_DATA_BYTES != 0) begin
-    $fatal(1, "Illegal values for parameter TRANSFER_LENGTH_BYTES (%0d); Needs to be a a multiple of AXI_DATA_BYTES (%0d).",
-        TRANSFER_LENGTH_BYTES,
-        AXI_DATA_BYTES
-    );
-end
-if (N_STRM_AXI > 8) begin
-    // This limitations is because we support only 3 bits for the stream identifier
-    // in the interrupt/notify value.
-    $fatal(1, "Module OutputStreamWriter expected at most 8 AXI streams. Found %0d", N_STRM_AXI);
-end
-endgenerate
-
-`ifndef SYNTHESIS
-always_ff @(posedge clk) begin
-    if (reset_synced == 1'b0) begin
-        ;
-    end else if (buffer.ready & buffer.valid) begin
-        if (buffer.data.size > MAXIMUM_HOST_ALLOCATION_SIZE_BYTES) begin
-            $fatal(1,
-                "Module OutputStreamWriter got memory allocation of %0d bytes, which is larger than the at most supported %0d bytes.", 
-                buffer.data.size,
-                MAXIMUM_HOST_ALLOCATION_SIZE_BYTES
-            );
-        end
-        if (buffer.data.size <= 0) begin      
-            $fatal(1,
-                "Module OutputStreamWriter got memory allocation of %0d bytes, allocations should be at least %0d in size", 
-                buffer.data.size,
-                TRANSFER_LENGTH_BYTES
-            );
-        end
-        if (buffer.data.size % TRANSFER_LENGTH_BYTES != 0) begin
-            $fatal(1,
-                "Module OutputStreamWriter got memory allocation of %0d bytes, which is not a multiple of the transfer size of %0d bytes.", 
-                buffer.data.size,
-                TRANSFER_LENGTH_BYTES
-            );
-        end
-    end
-end
-`endif
-
-// ----------------------------------------------------------------------------
-// Input logic
-// ----------------------------------------------------------------------------
+// -- Input logic ----------------------------------------------------------------------------------
 AXI4S data_fifo_in(.aclk(clk));
 logic[TRANSFER_ADDRESS_LEN_BITS - 1:0] curr_len, curr_len_succ;
 logic curr_len_valid;
 logic curr_len_ready;
 
 // The input is ready if there is space in both FIFOs
-assign input_data_de_coupled.tready = data_fifo_in.tready & curr_len_ready;
-assign data_fifo_in.tdata   = input_data_de_coupled.tdata;
-assign data_fifo_in.tkeep   = input_data_de_coupled.tkeep;
-assign data_fifo_in.tvalid  = input_data_de_coupled.tvalid;
-assign data_fifo_in.tlast   = input_data_de_coupled.tlast;
+assign input_data.tready = data_fifo_in.tready & curr_len_ready;
+assign data_fifo_in.tdata   = input_data.tdata;
+assign data_fifo_in.tkeep   = input_data.tkeep;
+assign data_fifo_in.tvalid  = input_data.tvalid;
+assign data_fifo_in.tlast   = input_data.tlast;
 
 // Whether the transfer will get full this cycle
 logic is_split;
-assign is_split = curr_len == TRANSFER_LENGTH_BYTES - AXI_DATA_BYTES || input_data_de_coupled.tlast;
+assign is_split = curr_len == TRANSFER_LENGTH_BYTES - AXI_DATA_BYTES || input_data.tlast;
 // Counts the number of bytes we will need to transfer.
 // Whenever we reached a full transfer, the length is split.
-assign curr_len_succ = curr_len + $countones(input_data_de_coupled.tkeep);
-assign curr_len_valid = is_split && input_data_de_coupled.tvalid && input_data_de_coupled.tready;
+assign curr_len_succ = curr_len + $countones(input_data.tkeep);
+assign curr_len_valid = is_split && input_data.tvalid && input_data.tready;
 
 always_ff @(posedge clk) begin
     if (reset_synced == 1'b0) begin
         curr_len <= 0;
     end else begin
-        if (input_data_de_coupled.tvalid && input_data_de_coupled.tready) begin
+        if (input_data.tvalid && input_data.tready) begin
             if (is_split) begin
                 curr_len <= 0;
             end else begin
@@ -163,18 +117,7 @@ always_ff @(posedge clk) begin
     end
 end
 
-// ----------------------------------------------------------------------------
-// Input and length buffering
-// ----------------------------------------------------------------------------
-
-// During synthesis, the FIFOs and the remainder of the implementation are placed
-// on different Super Logic Regions (SLRs).
-// This means there is a path crossing that needs to be done, which adds a high latency
-// to any path that uses the FIFO outputs.
-// To improve the WNS, we introduce shifting stages. Those stages introduce additional
-// registers along the path, which should mean that the SLR crossing is "buffered" by registers.
-localparam integer SHIFT_STAGES = 2;
-
+// -- Input and length buffering -------------------------------------------------------------------
 localparam integer TARGET_DATA_DEPTH = 2 * (TRANSFER_LENGTH_BYTES / AXI_DATA_BYTES);
 // This ensures we don't go below the minimum size supported by the FIFO
 localparam integer DATA_FIFO_DEPTH = TARGET_DATA_DEPTH >= 4 ? TARGET_DATA_DEPTH : 4;
@@ -212,9 +155,7 @@ FIFO #(
     .o_filling_level()
 );
 
-// -------------------------------------------------------------------------------------------------
-// Output logic
-// -------------------------------------------------------------------------------------------------
+// -- Output logic ---------------------------------------------------------------------------------
 typedef enum logic[2:0] {
     WAIT_VADDR = 0,
     REQUEST = 1,
@@ -239,22 +180,24 @@ vaddress_t bytes_written_to_allocation;
 assign buffer.ready = output_state == WAIT_VADDR;
 
 // Tracking of the amount of data we have written in the current transfer
-logic[TRANSFER_ADDRESS_LEN_BITS - 1 : 0] bytes_written_to_transfer, bytes_written_to_transfer_succ;
-logic[$clog2(AXI_DATA_BYTES) : 0] bytes_to_write_to_transfer;
+localparam BEAT_BITS = $clog2(AXI_DATA_BYTES);
+localparam TRANSFER_BEAT_COUNTER_WIDTH = TRANSFER_ADDRESS_LEN_BITS - BEAT_BITS;
+logic[TRANSFER_BEAT_COUNTER_WIDTH - 1 : 0] beats_written_to_transfer, beats_written_to_transfer_succ;
 vaddress_t num_requests, num_completed_transfers;
+logic has_partial_beat;
 logic current_transfer_completed;
 
-assign current_transfer_completed = bytes_written_to_transfer_succ == next_len;
-assign bytes_to_write_to_transfer = $countones(axis_data_fifo.tkeep);
-assign bytes_written_to_transfer_succ = bytes_written_to_transfer + bytes_to_write_to_transfer;
+assign has_partial_beat               = |(next_len[BEAT_BITS - 1:0]);
+assign current_transfer_completed     = beats_written_to_transfer_succ == (next_len >> BEAT_BITS) + has_partial_beat;
+assign bytes_to_write_to_transfer     = $countones(axis_data_fifo.tkeep);
+assign beats_written_to_transfer_succ = beats_written_to_transfer + 1;
 // We get the next length when either
 // - The last data beat of the current transfer is done (so the length is available in the next cycle)
 // - The length is currently not valid. This can be because:
 //    - It was never valid so far (first transfer)
 //    - It did not become immediately valid after the 1 cycle we became ready after the last transfer
 assign next_len_ready =
-    (output_state == TRANSFER && axis_data_fifo.tvalid && output_data.tready && current_transfer_completed) |
-    (next_len_valid == 1'b0);
+    (output_state == TRANSFER && axis_data_fifo.tvalid && internal_data.tready && current_transfer_completed);
 
 // Completions we get
 assign cq_wr.ready = 1;
@@ -349,7 +292,7 @@ always_ff @(posedge clk) begin
                         output_state                <= TRANSFER;
                         num_requests                <= num_requests + 1;
                         bytes_written_to_allocation <= bytes_written_to_allocation + next_len;
-                        bytes_written_to_transfer   <= 0;
+                        beats_written_to_transfer   <= 0;
                     end else begin
                         // No data, no request, or transfer. Only interrupt.
                         output_state <= WAIT_NOTIFY;
@@ -361,7 +304,7 @@ always_ff @(posedge clk) begin
                     end                    
                 end end 
             TRANSFER: begin
-                if (axis_data_fifo.tvalid && output_data.tready) begin
+                if (axis_data_fifo.tvalid && internal_data.tready) begin
                     // If this was the last data beat of the transfer
                     if (current_transfer_completed) begin
                         if (axis_data_fifo.tlast | allocation_size < bytes_written_to_allocation + TRANSFER_LENGTH_BYTES) begin
@@ -378,7 +321,7 @@ always_ff @(posedge clk) begin
                             output_state <= REQUEST;
                         end
                     end else begin
-                        bytes_written_to_transfer <= bytes_written_to_transfer_succ;
+                        beats_written_to_transfer <= beats_written_to_transfer_succ;
                     end
                 end end
             WAIT_COMPLETION: begin
@@ -403,11 +346,19 @@ always_ff @(posedge clk) begin
 end
 
 // -- Assign output data ---------------------------------------------------------------------------
-assign output_data.tdata     = axis_data_fifo.tdata;
-assign output_data.tid       = '0;
-assign output_data.tkeep     = axis_data_fifo.tkeep;
-assign output_data.tlast     = current_transfer_completed;
-assign output_data.tvalid    = output_state == TRANSFER && axis_data_fifo.tvalid;
-assign axis_data_fifo.tready = output_state == TRANSFER && output_data.tready;
+AXI4S internal_data();
+AXI4S output_axis();
+
+assign internal_data.tdata   = axis_data_fifo.tdata;
+
+assign internal_data.tkeep   = axis_data_fifo.tkeep;
+assign internal_data.tlast   = current_transfer_completed;
+assign internal_data.tvalid  = output_state == TRANSFER && axis_data_fifo.tvalid;
+assign axis_data_fifo.tready = output_state == TRANSFER && internal_data.tready;
+
+AXISkidBuffer inst_skid_buffer (.clk(clk), .rst_n(reset_synced), .in(internal_data), .out(output_axis));
+
+`AXIS_ASSIGN(output_axis, output_data);
+assign output_data.tid = '0;
 
 endmodule

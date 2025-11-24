@@ -77,18 +77,6 @@ MetaIntfArbiter #(
 // -- FPGA-initiated transfers ---------------------------------------------------------------------
 for(genvar I = 0; I < N_STRM_AXI; I++) begin
 `ifndef DISABLE_OUTPUT_WRITER
-    AXI4S #(.AXI4S_DATA_BITS(512)) data_in_skid (.aclk(clk));
-
-    // Skid buffer to ease routing
-    AXISkidBuffer #(
-        .AXI4S_DATA_BITS(512)
-    ) inst_skid_buffer (
-        .clk(clk),
-        .rst_n(reset_synced),
-        .in(data_in[I]),
-        .out(data_in_skid)
-    );
-
     // Invoke the FPGA-initiated transfers for this stream
     StreamWriter #(
         .AXI_STRM_ID(I),
@@ -103,7 +91,7 @@ for(genvar I = 0; I < N_STRM_AXI; I++) begin
 
         .mem_config(mem_config[I]),
 
-        .input_data(data_in_skid),
+        .input_data(data_in[I]),
         .output_data(data_out[I])
     );
 `else
