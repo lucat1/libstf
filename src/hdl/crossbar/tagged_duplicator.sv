@@ -7,7 +7,8 @@
  * has acknowledged the element with a ready.
  */
 module TaggedDuplicator #(
-    parameter integer NUM_STREAMS
+    parameter integer NUM_STREAMS,
+    parameter integer NUM_SKID_STAGES = 2
 ) (
     input logic clk,
     input logic rst_n,
@@ -22,7 +23,7 @@ localparam integer TAG_WIDTH = in.TAG_WIDTH;
 logic[NUM_STREAMS - 1:0] internal_ready;
 logic[NUM_STREAMS - 1:0] seen, n_seen;
 
-tagged_i #(data_t, TAG_WIDTH) internal[NUM_STREAMS]();
+tagged_i #(data_t, TAG_WIDTH) internal[NUM_STREAMS][NUM_SKID_STAGES + 1]();
 
 assign in.ready = &(seen | internal_ready);
 
@@ -45,24 +46,25 @@ always_comb begin
 end
 
 for (genvar I = 0; I < NUM_STREAMS; I++) begin
-    assign internal_ready[I] = internal[I].ready;
+    assign internal_ready[I] = internal[I][0].ready;
 
-    assign internal[I].data  = in.data;
-    assign internal[I].tag   = in.tag;
-    assign internal[I].keep  = in.keep;
-    assign internal[I].last  = in.last;
-    assign internal[I].valid = in.valid && !seen[I];
+    assign internal[I][0].data  = in.data;
+    assign internal[I][0].tag   = in.tag;
+    assign internal[I][0].keep  = in.keep;
+    assign internal[I][0].last  = in.last;
+    assign internal[I][0].valid = in.valid && !seen[I];
 
-    TaggedSkidBuffer #(
-        .data_t(data_t),
-        .TAG_WIDTH(TAG_WIDTH)
-    ) inst_skid_buffer (
-        .clk(clk),
-        .rst_n(rst_n),
+    for (genvar J = 0; J < NUM_SKID_STAGES; J++) begin
+        TaggedSkidBuffer #(data_t, TAG_WIDTH) inst_skid_buffer (.clk(clk), .rst_n(rst_n), .in(internal[I][J]), .out(internal[I][J + 1]));
+    end
 
-        .in(internal[I]),
-        .out(out[I])
-    );
+    assign internal[I][NUM_SKID_STAGES].ready = out[I].ready;
+
+    assign out[I].data  = internal[I][NUM_SKID_STAGES].data;
+    assign out[I].tag   = internal[I][NUM_SKID_STAGES].tag;
+    assign out[I].keep  = internal[I][NUM_SKID_STAGES].keep;
+    assign out[I].last  = internal[I][NUM_SKID_STAGES].last;
+    assign out[I].valid = internal[I][NUM_SKID_STAGES].valid;
 end
 
 endmodule

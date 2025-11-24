@@ -1,5 +1,7 @@
 `timescale 1ns / 1ps
 
+`include "libstf_macros.svh"
+
 /**
  * Can be configured to discard the input stream or forward it to the output. The ID parameter can 
  * be used to select the correct enable signal in case the enable configuration carries the signal 
@@ -7,7 +9,7 @@
  */
 module DataSink #(
     parameter integer ID,
-    parameter integer HAS_SKID_BUFFER = 0
+    parameter integer ENABLE_SKID_BUFFER = 1
 ) (
     input logic clk,
     input logic rst_n,
@@ -60,17 +62,8 @@ assign internal.keep  = in.keep;
 assign internal.last  = in.last;
 assign internal.valid = in.valid && enable_reg_valid && !enable_reg;
 
-generate if (HAS_SKID_BUFFER) begin
-    NDataSkidBuffer #(
-        .data_t(data_t),
-        .NUM_ELEMENTS(NUM_ELEMENTS)
-    ) inst_skid_buffer (
-        .clk(clk),
-        .rst_n(rst_n),
-
-        .in(internal),
-        .out(out)
-    );
+generate if (ENABLE_SKID_BUFFER) begin
+    NDataSkidBuffer #(data_t, NUM_ELEMENTS) inst_skid_buffer (.clk(clk), .rst_n(rst_n), .in(internal), .out(out));
 end else begin
     `DATA_ASSIGN(internal, out)
 end endgenerate

@@ -4,10 +4,10 @@ module Crossbar #(
     parameter type data_t,
     parameter NUM_INPUTS,
     parameter NUM_OUTPUTS,
-    parameter LAST_HANDLING = 1, // Handling of the last signal by the Multiplexer
-    parameter FILTER_KEEP = 1,   // If the Multiplexer filters by keep signal
-    parameter NUM_SKID_BUFFERS = 8,
-    parameter TAG_WIDTH        = $clog2(NUM_OUTPUTS)
+    parameter LAST_HANDLING   = 1, // Handling of the last signal by the Multiplexer
+    parameter FILTER_KEEP     = 1, // If the Multiplexer filters by keep signal
+    parameter NUM_SKID_STAGES = 4,
+    parameter TAG_WIDTH       = $clog2(NUM_OUTPUTS)
 ) (
     input logic clk,
     input logic rst_n,
@@ -18,9 +18,9 @@ module Crossbar #(
 
 // We need this generate wrapper to fix some issue that we found in ParCore. 
 // We did not find a good explanation why we need it though.
-generate 
+generate
 
-tagged_i #(data_t, TAG_WIDTH) skid_pipe[NUM_INPUTS][NUM_SKID_BUFFERS + 1]();
+tagged_i #(data_t, TAG_WIDTH) skid_pipe[NUM_INPUTS][NUM_SKID_STAGES + 1]();
 tagged_i #(data_t, TAG_WIDTH) duplicator_out[NUM_INPUTS][NUM_OUTPUTS]();
 tagged_i #(data_t, TAG_WIDTH) mux_in[NUM_OUTPUTS][NUM_INPUTS]();
 
@@ -38,17 +38,8 @@ end
 
 // SkidBuffer pipeline
 for (genvar I = 0; I < NUM_INPUTS; I++) begin
-    for (genvar J = 0; J < NUM_SKID_BUFFERS; J++) begin
-        TaggedSkidBuffer #(
-            .data_t(data_t),
-            .TAG_WIDTH(TAG_WIDTH)
-        ) inst_skid_buffer (
-            .clk(clk),
-            .rst_n(rst_n),
-
-            .in(skid_pipe[I][J]),
-            .out(skid_pipe[I][J + 1])
-        );
+    for (genvar J = 0; J < NUM_SKID_STAGES; J++) begin
+        TaggedSkidBuffer #(data_t, TAG_WIDTH) inst_skid_buffer (.clk(clk), .rst_n(rst_n), .in(skid_pipe[I][J]), .out(skid_pipe[I][J + 1]));
     end
 end
 
@@ -60,7 +51,7 @@ for (genvar I = 0; I < NUM_INPUTS; I++) begin
         .clk(clk),
         .rst_n(rst_n),
 
-        .in(skid_pipe[I][NUM_SKID_BUFFERS]),
+        .in(skid_pipe[I][NUM_SKID_STAGES]),
         .out(duplicator_out[I])
     );
 

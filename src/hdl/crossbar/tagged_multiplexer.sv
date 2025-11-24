@@ -128,14 +128,6 @@ always_comb begin
     end 
 end
 
-DataSkidBuffer #(
-    .data_t(data_t)
-) inst_skid_buffer (
-    .clk(clk),
-    .rst_n(rst_n),
-
-    .in(skid),
-    .out(out)
-);
+DataSkidBuffer #(data_t) inst_skid_buffer (.clk(clk), .rst_n(rst_n), .in(skid), .out(out));
 
 endmodule

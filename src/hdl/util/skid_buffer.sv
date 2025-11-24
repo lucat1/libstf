@@ -14,7 +14,7 @@ ready_valid_i #(data_t) tmp(), over();
 
 always_ff @(posedge clk) begin
     if (!rst_n) begin
-        tmp.valid <= 1'b0;
+        tmp.valid  <= 1'b0;
         over.valid <= 1'b0;
     end else begin
         if (in.ready) begin
@@ -184,9 +184,9 @@ module AXISkidBuffer #(
 );
 
 typedef struct packed {
-    logic[AXI4S_DATA_BITS - 1:0]  tdata;
+    logic[AXI4S_DATA_BITS - 1:0]     tdata;
     logic[AXI4S_DATA_BITS / 8 - 1:0] tkeep;
-    logic                         tlast;
+    logic                            tlast;
 } tmp_t;
 
 ready_valid_i #(tmp_t) skid_in(), skid_out();
