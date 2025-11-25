@@ -20,6 +20,8 @@ module Crossbar #(
 // We did not find a good explanation why we need it though.
 generate
 
+`RESET_RESYNC // Reset pipelining
+
 tagged_i #(data_t, TAG_WIDTH) skid_pipe[NUM_INPUTS][NUM_SKID_STAGES + 1]();
 tagged_i #(data_t, TAG_WIDTH) duplicator_out[NUM_INPUTS][NUM_OUTPUTS]();
 tagged_i #(data_t, TAG_WIDTH) mux_in[NUM_OUTPUTS][NUM_INPUTS]();
@@ -39,7 +41,7 @@ end
 // SkidBuffer pipeline
 for (genvar I = 0; I < NUM_INPUTS; I++) begin
     for (genvar J = 0; J < NUM_SKID_STAGES; J++) begin
-        TaggedSkidBuffer #(data_t, TAG_WIDTH) inst_skid_buffer (.clk(clk), .rst_n(rst_n), .in(skid_pipe[I][J]), .out(skid_pipe[I][J + 1]));
+        TaggedSkidBuffer #(data_t, TAG_WIDTH) inst_skid_buffer (.clk(clk), .rst_n(reset_synced), .in(skid_pipe[I][J]), .out(skid_pipe[I][J + 1]));
     end
 end
 
@@ -49,7 +51,7 @@ for (genvar I = 0; I < NUM_INPUTS; I++) begin
         .NUM_STREAMS(NUM_OUTPUTS)
     ) inst_duplicator (
         .clk(clk),
-        .rst_n(rst_n),
+        .rst_n(reset_synced),
 
         .in(skid_pipe[I][NUM_SKID_STAGES]),
         .out(duplicator_out[I])
@@ -76,7 +78,7 @@ for (genvar O = 0; O < NUM_OUTPUTS; O++) begin
         .FILTER_KEEP(FILTER_KEEP)
     ) inst_mux (
         .clk(clk),
-        .rst_n(rst_n),
+        .rst_n(reset_synced),
 
         .in(mux_in[O]),
         .out(out[O])

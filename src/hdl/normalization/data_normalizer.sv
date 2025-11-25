@@ -8,8 +8,8 @@ module DataNormalizer #(
     parameter type data_t,
     parameter NUM_ELEMENTS,
     parameter ENABLE_COMPACTOR = 0,
-    parameter COMPACTOR_REGISTER_LEVELS = 0,
-    parameter BARREL_SHIFTER_REGISTER_LEVELS = 0
+    parameter COMPACTOR_REGISTER_LEVELS = 1,
+    parameter BARREL_SHIFTER_REGISTER_LEVELS = 1
 ) (
     input logic clk,
     input logic rst_n,

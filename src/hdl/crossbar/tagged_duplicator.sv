@@ -17,6 +17,8 @@ module TaggedDuplicator #(
     tagged_i.m out[NUM_STREAMS] // #(data_t, TAG_WIDTH)
 );
 
+`RESET_RESYNC // Reset pipelining
+
 localparam type    data_t    = in.data_t;
 localparam integer TAG_WIDTH = in.TAG_WIDTH;
 
@@ -28,7 +30,7 @@ tagged_i #(data_t, TAG_WIDTH) internal[NUM_STREAMS][NUM_SKID_STAGES + 1]();
 assign in.ready = &(seen | internal_ready);
 
 always_ff @(posedge clk) begin
-    if(!rst_n) begin
+    if(!reset_synced) begin
         seen <= '0;     
     end else begin
         seen <= n_seen;
@@ -55,7 +57,7 @@ for (genvar I = 0; I < NUM_STREAMS; I++) begin
     assign internal[I][0].valid = in.valid && !seen[I];
 
     for (genvar J = 0; J < NUM_SKID_STAGES; J++) begin
-        TaggedSkidBuffer #(data_t, TAG_WIDTH) inst_skid_buffer (.clk(clk), .rst_n(rst_n), .in(internal[I][J]), .out(internal[I][J + 1]));
+        TaggedSkidBuffer #(data_t, TAG_WIDTH) inst_skid_buffer (.clk(clk), .rst_n(reset_synced), .in(internal[I][J]), .out(internal[I][J + 1]));
     end
 
     assign internal[I][NUM_SKID_STAGES].ready = out[I].ready;
