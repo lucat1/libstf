@@ -346,8 +346,8 @@ always_ff @(posedge clk) begin
 end
 
 // -- Assign output data ---------------------------------------------------------------------------
-AXI4S internal_data();
-AXI4S output_axis();
+AXI4S internal_data(.aclk(clk));
+AXI4S output_axis(.aclk(clk));
 
 assign internal_data.tdata   = axis_data_fifo.tdata;
 
