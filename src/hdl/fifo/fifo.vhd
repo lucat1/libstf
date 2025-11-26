@@ -6,7 +6,8 @@ use ieee.math_real.all;
 entity FIFO is
     generic (
         DEPTH: natural; --a power of two except 1
-        WIDTH: natural
+        WIDTH: natural;
+        STYLE: string := "block"
     );
     port (
         i_clk:   in std_logic;
@@ -31,6 +32,9 @@ type memory_t is array (DEPTH - 1 downto 0) of std_logic_vector(WIDTH - 1 downto
 constant ADDRESS_WIDTH: natural := natural(ceil(log2(real(DEPTH))));
 
 signal s_memory:   memory_t;
+attribute ram_style : string;
+attribute ram_style of s_memory : signal is STYLE;
+
 signal s_write_en: std_logic;
 
 signal s_write_ptr, s_next_write_ptr, s_write_ptr_succ:                       std_logic_vector(ADDRESS_WIDTH - 1 downto 0);
