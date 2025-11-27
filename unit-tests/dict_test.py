@@ -1,6 +1,7 @@
 import random
 from typing import List
-from coyote_test import fpga_test_case, fpga_register
+from coyote_test import fpga_test_case, fpga_performance_test_case, fpga_register
+from unit_test import simulation_time
 from unit_test.fpga_stream import get_bytes_for_stream_type, Stream, StreamType
 from libstf_utils.common import stream_type_to_libstf_type_t
 
@@ -34,14 +35,7 @@ class DictExpression:
             result.append(Stream(StreamType.UNSIGNED_INT_32, i))
         return result
 
-
-class DictTest(fpga_test_case.FPGATestCase):
-    """
-    These tests test the cached and stream materializer.
-    """
-
-    debug_mode = True
-    verbose_logging = True
+class DictTestMixin():
     alternative_vfpga_top_file = "vfpga_tops/dict_test.sv"
 
     # Method that gets executed once per test case
@@ -74,7 +68,16 @@ class DictTest(fpga_test_case.FPGATestCase):
         for results in self.expression.apply():
             self.set_expected_output(0, results)
 
+        self.overwrite_simulation_time(simulation_time.SimulationTime.till_finished())
         return super().simulate_fpga()
+
+class DictTest(DictTestMixin, fpga_test_case.FPGATestCase):
+    """
+    These tests test the dictionary.
+    """
+
+    debug_mode = True
+    verbose_logging = True
 
     def test_sequential_32bit(self):
         values = Stream(StreamType.UNSIGNED_INT_32, list(range(0, 500)))
@@ -91,6 +94,8 @@ class DictTest(fpga_test_case.FPGATestCase):
         self.assert_simulation_output()
 
     def test_random_32bit(self):
+        random.seed(42)
+
         values = Stream(StreamType.UNSIGNED_INT_32, list(range(0, 500)))
         ids = [random.randint(0, 499) for _ in range(0, 1001)]
         self.expression = DictExpression(
@@ -119,6 +124,8 @@ class DictTest(fpga_test_case.FPGATestCase):
         self.assert_simulation_output()
 
     def test_random_64bit(self):
+        random.seed(42)
+
         values = Stream(StreamType.UNSIGNED_INT_64, list(range(0, 500)))
         ids = [random.randint(0, 499) for _ in range(0, 1001)]
         self.expression = DictExpression(
@@ -146,3 +153,47 @@ class DictTest(fpga_test_case.FPGATestCase):
 
         # Assert
         self.assert_simulation_output()
+
+class DictPerformanceTest(DictTestMixin, fpga_performance_test_case.FPGAPerformanceTestCase):
+    debug_mode = True
+    verbose_logging = True
+
+    def test_sequential_64bit(self):
+        NUM_VALUES = 500
+        values = Stream(StreamType.UNSIGNED_INT_64, list(range(0, NUM_VALUES)))
+        ids = [i % NUM_VALUES for i in range(0, 4000)]
+        self.expression = DictExpression(
+            [values],
+            [ids]
+        )
+
+        # Perfect performance
+        self.set_expected_avg_cycles_per_batch(0, len(ids) / NUM_VALUES)
+
+        # Act
+        self.simulate_fpga()
+
+        # Assert
+        self.assert_simulation_output()
+        self.assert_expected_performance()
+
+    def test_random_64bit(self):
+        random.seed(42)
+        
+        NUM_VALUES = 500
+        values = Stream(StreamType.UNSIGNED_INT_64, list(range(0, NUM_VALUES)))
+        ids = [random.randint(0, NUM_VALUES - 1) for _ in range(0, 4000)]
+        self.expression = DictExpression(
+            [values],
+            [ids]
+        )
+
+        # We expect about 10% overhead from collisions
+        self.set_expected_avg_cycles_per_batch(0, (len(ids) / NUM_VALUES) * 1.1)
+
+        # Act
+        self.simulate_fpga()
+
+        # Assert
+        self.assert_simulation_output()
+        self.assert_expected_performance()
