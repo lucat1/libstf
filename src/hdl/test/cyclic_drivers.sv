@@ -18,14 +18,32 @@ module ReadyValidCyclicDriver #(
     ready_valid_i.m out_data
 );
 
-reg [$clog2(NUM_ELEMENTS)-1:0] i;
+logic reset_synced = 1'b0;
+
+initial begin
+    reset_synced = 1'b0;
+    wait(rst_n == 1'b1);
+    fork
+        begin
+            int rand_delay;
+            std::randomize(rand_delay) with {
+                rand_delay < 100;
+                rand_delay > 40;
+            };
+            #(rand_delay * 1ns);
+            reset_synced = 1'b1;
+        end
+    join_none
+end
+
+reg [$clog2(NUM_ELEMENTS)-1:0] i = 0;
 
 // We always have data to put out, as we're cycling through the input values
-assign out_data.valid = rst_n;
 assign out_data.data = data[i];
+assign out_data.valid = reset_synced;
 
 always_ff @(posedge clk) begin
-    if (rst_n == 1'b0) begin
+    if (reset_synced == 1'b0) begin
         i <= 0;
     end else if (out_data.ready) begin
         i <= (i + 1) % NUM_ELEMENTS;
