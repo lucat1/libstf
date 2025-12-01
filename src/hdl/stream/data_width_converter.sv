@@ -24,7 +24,7 @@ localparam OUT_WIDTH = out.NUM_ELEMENTS;
 
 generate if (IN_WIDTH == OUT_WIDTH) begin
     `DATA_ASSIGN(in, out)
-end else begin
+end else if (IN_WIDTH == 8 && OUT_WIDTH == 16) begin
     logic is_upper, n_is_upper;
 
     data_t[OUT_WIDTH - 1:0] data,  n_data;
