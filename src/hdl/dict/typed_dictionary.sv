@@ -116,8 +116,8 @@ always_comb begin
     dictionary_in_ids.data  = 'x;
     dictionary_in_ids.keep  = 'x;
     dictionary_in_ids.last  = 'x;
-    dictionary_in_ids.valid = 0;
-    in_ids.ready            = 0;
+    dictionary_in_ids.valid = 1'b0;
+    in_ids.ready            = 1'b0;
 
     case (GET_TYPE_WIDTH(typ.data))
         32: begin
