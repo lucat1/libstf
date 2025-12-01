@@ -1,16 +1,14 @@
 `timescale 1ns / 1ps
 
+`include "axi_macros.svh"
 `include "libstf_macros.svh"
 
 /**
  * Converts an AXI stream to a different width.
  *
- * Currently only 512bit to 256bit and 512bit to 256bit is supported.
+ * Currently only same input and output width and  512bit to 256bit is supported.
  */
-module AXIWidthConverter #(
-    parameter IN_WIDTH,
-    parameter OUT_WIDTH
-) (
+module AXIWidthConverter (
     input logic clk,
     input logic rst_n,
 
@@ -18,11 +16,16 @@ module AXIWidthConverter #(
     AXI4S.m out // #(OUT_WIDTH)
 );
 
-`ASSERT_ELAB(IN_WIDTH == 512 && OUT_WIDTH == 256)
+localparam IN_WIDTH  = in.AXI4S_DATA_BITS;
+localparam OUT_WIDTH = out.AXI4S_DATA_BITS;
+
+`ASSERT_ELAB(IN_WIDTH == OUT_WIDTH || IN_WIDTH == 512 && OUT_WIDTH == 256)
 
 logic is_upper;
 
-generate if (IN_WIDTH == 512 && OUT_WIDTH == 256) begin // Downsize
+generate if (IN_WIDTH == OUT_WIDTH) begin
+    `AXIS_ASSIGN(in, out);
+end else if (IN_WIDTH == 512 && OUT_WIDTH == 256) begin // Downsize
     logic has_upper_data, beat_done;
 
     assign has_upper_data = |in.tkeep[63:32];

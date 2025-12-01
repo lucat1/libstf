@@ -1,6 +1,5 @@
 `timescale 1ns / 1ps
 
-`include "axi_macros.svh"
 `include "libstf_macros.svh"
 
 /**
@@ -31,21 +30,15 @@ localparam AXI_ELEMENT_SIZE = AXI_ELEMENT_WIDTH / 8;
 
 ndata_i #(data_t, NUM_AXI_ELEMENTS) internal();
 
-generate if (NUM_ELEMENTS == NUM_AXI_ELEMENTS) begin
-    `DATA_ASSIGN(in, internal);
-end else begin
-    NDataWidthConverter #(
-        .data_t(data_t),
-        .IN_WIDTH(NUM_ELEMENTS),
-        .OUT_WIDTH(NUM_AXI_ELEMENTS)
-    ) inst_width_converter (
-        .clk(clk),
-        .rst_n(rst_n),
+NDataWidthConverter #(
+    .data_t(data_t)
+) inst_width_converter (
+    .clk(clk),
+    .rst_n(rst_n),
 
-        .in(in),
-        .out(internal)
-    );
-end endgenerate
+    .in(in),
+    .out(internal)
+);
 
 assign internal.ready = out.tready;
 
@@ -90,20 +83,13 @@ localparam AXI_ELEMENT_SIZE = AXI_ELEMENT_WIDTH / 8;
 
 AXI4S #(AXI_ELEMENT_WIDTH * NUM_ELEMENTS) internal(.aclk(clk));
 
-generate if (NUM_ELEMENTS == NUM_AXI_ELEMENTS) begin
-    `AXIS_ASSIGN(in, internal);
-end else begin
-    AXIWidthConverter #(
-        .IN_WIDTH(AXI_WIDTH),
-        .OUT_WIDTH(AXI_WIDTH / 2)
-    ) inst_width_converter (
-        .clk(clk),
-        .rst_n(rst_n),
+AXIWidthConverter inst_width_converter (
+    .clk(clk),
+    .rst_n(rst_n),
 
-        .in(in),
-        .out(internal)
-    );
-end endgenerate
+    .in(in),
+    .out(internal)
+);
 
 assign internal.tready = out.ready;
 

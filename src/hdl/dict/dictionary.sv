@@ -81,9 +81,7 @@ data_i   #(value_t)                     reorder_out[NUM_ELEMENTS]();
 
 // Decouple values
 NDataWidthConverter #(
-    .data_t(value_t),
-    .IN_WIDTH(NUM_ELEMENTS),
-    .OUT_WIDTH(NUM_BANKS)
+    .data_t(value_t)
 ) inst_width_converter (
     .clk(clk),
     .rst_n(reset_synced),
