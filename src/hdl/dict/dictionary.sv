@@ -39,6 +39,7 @@ localparam LOG_NUM_ELEMENTS = $clog2(NUM_ELEMENTS);
 localparam LOG_NUM_BANKS = $clog2(NUM_BANKS);
 localparam LOG_MAX_IN_TRANSIT = $clog2(MAX_IN_TRANSIT);
 localparam SERIAL_WIDTH = LOG_MAX_IN_TRANSIT + LOG_NUM_ELEMENTS;
+localparam DEDUPLICATION_WIDTH = NUM_ELEMENTS + NUM_ELEMENTS * $clog2(NUM_ELEMENTS);
 
 typedef logic[SERIAL_WIDTH - 1:0]            full_serial_t;
 typedef logic[LOG_MAX_IN_TRANSIT - 1:0]      serial_t;
@@ -61,12 +62,16 @@ typedef struct packed {
 
 ndata_i  #(value_t, NUM_BANKS) values_converted();
 
-ndata_i  #(id_t, NUM_ELEMENTS)   creditor_out();
+ndata_i  #(id_t, NUM_ELEMENTS) creditor_out();
+ndata_i  #(id_t, NUM_ELEMENTS) deduplicate_out();
 tagged_i #(id_t, SERIAL_WIDTH) decoupler_out[NUM_ELEMENTS]();
 
 data_i #(value_t) value_decoupler_out[NUM_BANKS]();
 
 valid_i #(logic[NUM_ELEMENTS:0]) coupler_mask(); // NUM_ELEMENTS keep bits and 1 last bit
+// NUM_ELEMENTS duplicate bits and $clog2(NUM_ELEMENTS) * NUM_ELEMENTS
+// duplicate origin bits
+valid_i #(logic[DEDUPLICATION_WIDTH - 1:0]) deduplicate_mask(); 
 
 tagged_i #(serial_id_t, LOG_NUM_BANKS) pre_cross_in[NUM_ELEMENTS]();
 data_i   #(serial_id_t)                pre_cross_out[NUM_BANKS]();
@@ -78,6 +83,8 @@ data_i   #(serial_value_t)                   post_cross_out[NUM_ELEMENTS]();
 
 tagged_i #(value_t, LOG_MAX_IN_TRANSIT) reorder_in[NUM_ELEMENTS]();
 data_i   #(value_t)                     reorder_out[NUM_ELEMENTS]();
+
+ndata_i  #(value_t, NUM_ELEMENTS)       coupler_out();
 
 // Decouple values
 NDataWidthConverter #(
@@ -102,8 +109,8 @@ Decoupler #(
 );
 
 // 1. Distribution of tuples to the respective bank that stores the value to materialize
-assign coupler_mask.data  = {in_ids.keep, in_ids.last};
-assign coupler_mask.valid = in_ids.valid && in_ids.ready;
+assign coupler_mask.data  = {deduplicate_out.keep, deduplicate_out.last};
+assign coupler_mask.valid = deduplicate_out.valid && deduplicate_out.ready;
 
 Creditor #(
     .MAX_IN_TRANSIT(MAX_IN_TRANSIT)
@@ -117,6 +124,18 @@ Creditor #(
     .credit_return(out.valid && out.ready)
 );
 
+Deduplicate #(
+    .data_t(id_t),
+    .NUM_ELEMENTS(NUM_ELEMENTS)
+) inst_deduplicate (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .in(creditor_out),
+    .mask(deduplicate_mask),
+    .out(deduplicate_out)
+);
+
 ReorderDecoupler #(
     .data_t(id_t),
     .NUM_ELEMENTS(NUM_ELEMENTS),
@@ -125,7 +144,7 @@ ReorderDecoupler #(
     .clk(clk),
     .rst_n(reset_synced),
 
-    .in(creditor_out),
+    .in(deduplicate_out),
     .out(decoupler_out)
 );
 
@@ -224,6 +243,20 @@ Coupler #(
     .mask(coupler_mask),
 
     .in(reorder_out),
+    .out(coupler_out)
+);
+
+Duplicate #(
+    .data_t(value_t),
+    .NUM_ELEMENTS(NUM_ELEMENTS),
+    .MAX_IN_TRANSIT(MAX_IN_TRANSIT+64)
+) inst_duplicate (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .mask(deduplicate_mask),
+
+    .in(coupler_out),
     .out(out)
 );
 
