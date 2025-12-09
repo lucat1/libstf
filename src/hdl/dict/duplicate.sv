@@ -9,42 +9,32 @@ module Duplicate #(
     input logic clk,
     input logic rst_n,
 
-    valid_i.s mask,  // #(logic[NUM_ELEMENTS + NUM_ELEMENTS * $clog2(NUM_VALUES) - 1:0])
+    duplicate_i.s mask,  // #(NUM_ELEMENTS)
 
     ndata_i.s in,    // #(data_t, NUM_ELEMENTS)
     ndata_i.m out    // #(data_t, NUM_ELEMENTS)
 );
 
-typedef struct packed {
-    logic duplicate;
-    logic [$clog2(NUM_ELEMENTS)-1:0] origin;
-} duplicate_t;
-
-ready_valid_i #(duplicate_t[NUM_ELEMENTS - 1:0]) curr_mask();
+duplicate_i #(NUM_ELEMENTS) curr_mask ();
 
 ndata_i #(data_t, NUM_ELEMENTS) d (), q ();
 
 FIFO #(
     .DEPTH(MAX_IN_TRANSIT),
-    .WIDTH($bits(duplicate_t) * NUM_ELEMENTS)
+    .WIDTH($bits(curr_mask.duplicates) + $bits(curr_mask.origins))
 ) inst_mask_fifo (
     .i_clk(clk),
     .i_rst_n(rst_n),
-
-    .i_data(mask.data),
+    .i_data({mask.duplicates, mask.origins}),
     .i_valid(mask.valid),
     .i_ready(),
-
-    .o_data(curr_mask.data),
+    .o_data({curr_mask.duplicates, curr_mask.origins}),
     .o_valid(curr_mask.valid),
-    .o_ready(curr_mask.ready),
-
+    .o_ready(in.valid && q.ready),
     .o_filling_level()
 );
 
-assign curr_mask.ready = in.valid && q.ready;
-
-assign in.ready = q.ready;
+assign in.ready = q.ready & curr_mask.valid;
 
 always_comb begin
     d.data  = q.data;
@@ -52,15 +42,15 @@ always_comb begin
     d.keep = q.keep;
     d.last = q.last;
 
-    if (in.valid && q.ready) begin
+    if (in.valid && in.ready) begin
         d.data  = in.data;
         d.keep  = in.keep;
         d.valid = 1;
         d.last  = in.last;
 
         for (int unsigned i = 0; i < NUM_ELEMENTS; i++) begin
-            if (curr_mask.data[i].duplicate) begin
-                d.data[i] = in.data[curr_mask.data[i].origin];
+            if (curr_mask.duplicates[i]) begin
+                d.data[i] = in.data[curr_mask.origins[i]];
                 d.keep[i] = 1;
             end
         end

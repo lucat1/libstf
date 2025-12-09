@@ -39,7 +39,6 @@ localparam LOG_NUM_ELEMENTS = $clog2(NUM_ELEMENTS);
 localparam LOG_NUM_BANKS = $clog2(NUM_BANKS);
 localparam LOG_MAX_IN_TRANSIT = $clog2(MAX_IN_TRANSIT);
 localparam SERIAL_WIDTH = LOG_MAX_IN_TRANSIT + LOG_NUM_ELEMENTS;
-localparam DEDUPLICATION_WIDTH = NUM_ELEMENTS + NUM_ELEMENTS * $clog2(NUM_ELEMENTS);
 
 typedef logic[SERIAL_WIDTH - 1:0]            full_serial_t;
 typedef logic[LOG_MAX_IN_TRANSIT - 1:0]      serial_t;
@@ -69,9 +68,7 @@ tagged_i #(id_t, SERIAL_WIDTH) decoupler_out[NUM_ELEMENTS]();
 data_i #(value_t) value_decoupler_out[NUM_BANKS]();
 
 valid_i #(logic[NUM_ELEMENTS:0]) coupler_mask(); // NUM_ELEMENTS keep bits and 1 last bit
-// NUM_ELEMENTS duplicate bits and $clog2(NUM_ELEMENTS) * NUM_ELEMENTS
-// duplicate origin bits
-valid_i #(logic[DEDUPLICATION_WIDTH - 1:0]) deduplicate_mask(); 
+duplicate_i #(NUM_ELEMENTS) deduplicate_mask(); 
 
 tagged_i #(serial_id_t, LOG_NUM_BANKS) pre_cross_in[NUM_ELEMENTS]();
 data_i   #(serial_id_t)                pre_cross_out[NUM_BANKS]();
