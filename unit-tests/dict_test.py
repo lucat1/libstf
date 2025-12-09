@@ -1,3 +1,4 @@
+from itertools import repeat
 import random
 from typing import List
 from coyote_test import fpga_test_case, fpga_performance_test_case, fpga_register
@@ -79,7 +80,7 @@ class DictTest(DictTestMixin, fpga_test_case.FPGATestCase):
     debug_mode = True
     verbose_logging = True
 
-    def test_sequential_32bit(self):
+    def test_sequential_32bit_once(self):
         values = Stream(StreamType.UNSIGNED_INT_32, list(range(0, 500)))
         ids = [i for i in range(0, 500)]
         self.expression = DictExpression(
@@ -93,7 +94,7 @@ class DictTest(DictTestMixin, fpga_test_case.FPGATestCase):
         # Assert
         self.assert_simulation_output()
 
-    def test_random_32bit(self):
+    def test_random_32bit_one(self):
         random.seed(42)
 
         values = Stream(StreamType.UNSIGNED_INT_32, list(range(0, 500)))
@@ -146,6 +147,34 @@ class DictTest(DictTestMixin, fpga_test_case.FPGATestCase):
         self.expression = DictExpression(
             [values_0, values_1],
             [ids, ids]
+        )
+
+        # Act
+        self.simulate_fpga()
+
+        # Assert
+        self.assert_simulation_output()
+
+    def test_duplicate_32bit_full(self):
+        values = Stream(StreamType.UNSIGNED_INT_32, list(range(0, 50)))
+        ids = [j for i in range(0, 50) for j in repeat(i, 8)]
+        self.expression = DictExpression(
+            [values],
+            [ids]
+        )
+
+        # Act
+        self.simulate_fpga()
+
+        # Assert
+        self.assert_simulation_output()
+
+    def test_duplicate_32bit_odd(self):
+        values = Stream(StreamType.UNSIGNED_INT_32, list(range(0, 100)))
+        ids = [j for i in range(0, 100) for j in repeat(i, 3)]
+        self.expression = DictExpression(
+            [values],
+            [ids]
         )
 
         # Act
