@@ -103,15 +103,15 @@ assert property (@(posedge clk) disable iff (!rst_n) in.valid && !in.ready |=> $
 else $fatal(1, "DeduplicationStage[%0d]: in.last changed while in.ready is low", ID);
 
 initial begin
-  assert (START_IDX_INCL < END_IDX_EXCL)
-  else
-    $fatal(
-        1,
-        "DeduplicationStage[%0d]: START_IDX %0d must be strictly less than END_IDX %0d",
-        ID,
-        START_IDX_INCL,
-        END_IDX_EXCL
-    );
+    assert (START_IDX_INCL < END_IDX_EXCL)
+    else
+        $fatal(
+            1,
+            "DeduplicationStage[%0d]: START_IDX %0d must be strictly less than END_IDX %0d",
+            ID,
+            START_IDX_INCL,
+            END_IDX_EXCL
+        );
 end
 
 endmodule
