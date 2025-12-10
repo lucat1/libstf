@@ -8,7 +8,7 @@
  */
 module TaggedDuplicator #(
     parameter integer NUM_STREAMS,
-    parameter integer NUM_SKID_STAGES = 2
+    parameter integer NUM_SKID_STAGES = 1
 ) (
     input logic clk,
     input logic rst_n,

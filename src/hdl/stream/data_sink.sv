@@ -24,8 +24,8 @@ localparam type    data_t       = in.data_t;
 localparam integer NUM_ELEMENTS = in.NUM_ELEMENTS;
 
 // If we don't pull this into an internal register we have to assign valid to ready which is bad
-logic enable_reg; 
-logic enable_reg_valid;
+logic enable_sink;
+logic enable_sink_valid;
 
 logic was_last_data_beat;
 
@@ -33,34 +33,30 @@ ndata_i #(data_t, NUM_ELEMENTS) internal();
 
 always_ff @(posedge clk) begin
     if (rst_n == 1'b0) begin
-        enable_reg_valid <= 1'b0;
+        enable_sink_valid <= 1'b0;
     end else begin
-        if (enable.valid) begin
-            if (enable.ready) begin
-                enable_reg       <= enable.data[ID];
-                enable_reg_valid <= 1'b1;
-            end
-        end else begin
-            enable_reg <= enable_reg;
-
-            if (was_last_data_beat) begin
-                enable_reg_valid <= '0;
-            end else begin
-                enable_reg_valid <= enable_reg_valid;
-            end
+        if (enable.ready && enable.valid) begin
+            enable_sink       <= enable.data[ID];
+            enable_sink_valid <= 1'b1;
+        end else if (was_last_data_beat) begin
+            enable_sink_valid <= 1'b0;
         end
     end
 end
 
 assign was_last_data_beat = in.valid && in.last && in.ready;
-assign enable.ready       = !enable_reg_valid || was_last_data_beat;
+assign enable.ready       = !enable_sink_valid || was_last_data_beat;
 
-assign in.ready = enable_reg_valid && (internal.ready || enable_reg);
+// Note: There is a special case for the last signal of a disabled stream. We zero out all keep 
+// signals but forward the last signal as valid such that the modules after know that the stream has
+// finished without getting any data.
+
+assign in.ready = enable_sink_valid && (!enable_sink || in.last) ? internal.ready : 1'b1;
 
 assign internal.data  = in.data;
-assign internal.keep  = in.keep;
+assign internal.keep  = enable_sink_valid && !enable_sink ? in.keep : '0;
 assign internal.last  = in.last;
-assign internal.valid = in.valid && enable_reg_valid && !enable_reg;
+assign internal.valid = enable_sink_valid && (!enable_sink || in.last) ? in.valid : 1'b0;
 
 generate if (ENABLE_SKID_BUFFER) begin
     NDataSkidBuffer #(data_t, NUM_ELEMENTS) inst_skid_buffer (.clk(clk), .rst_n(rst_n), .in(internal), .out(out));
