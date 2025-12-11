@@ -83,7 +83,7 @@ ready_valid_i #(buffer_t) buffer();
 `CONFIG_SIGNALS_TO_INTF(mem_config.buffer, buffer)
 
 // -- Input logic ----------------------------------------------------------------------------------
-AXI4S data_fifo_in(.aclk(clk));
+AXI4S data_fifo_in(.aclk(clk), .aresetn(reset_synced));
 logic[TRANSFER_ADDRESS_LEN_BITS - 1:0] curr_len, curr_len_succ;
 logic curr_len_valid;
 logic curr_len_ready;
@@ -122,7 +122,7 @@ localparam integer TARGET_DATA_DEPTH = 2 * (TRANSFER_LENGTH_BYTES / AXI_DATA_BYT
 // This ensures we don't go below the minimum size supported by the FIFO
 localparam integer DATA_FIFO_DEPTH = TARGET_DATA_DEPTH >= 4 ? TARGET_DATA_DEPTH : 4;
 
-AXI4S axis_data_fifo(.aclk(clk));
+AXI4S axis_data_fifo(.aclk(clk), .aresetn(reset_synced));
 FIFOAXI #(
     .DEPTH(DATA_FIFO_DEPTH)
 ) inst_data_fifo (
@@ -346,8 +346,8 @@ always_ff @(posedge clk) begin
 end
 
 // -- Assign output data ---------------------------------------------------------------------------
-AXI4S internal_data(.aclk(clk));
-AXI4S output_axis(.aclk(clk));
+AXI4S internal_data(.aclk(clk), .aresetn(reset_synced));
+AXI4S output_axis  (.aclk(clk), .aresetn(reset_synced));
 
 assign internal_data.tdata   = axis_data_fifo.tdata;
 

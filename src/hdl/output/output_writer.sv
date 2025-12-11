@@ -41,9 +41,9 @@ for(genvar I = 0; I < N_STRM_AXI; I++) begin
 end
 
 // -- De-mux and arbiter the queue and notify signals ----------------------------------------------
-metaIntf #(.STYPE(req_t))     sq_wr_strm  [N_STRM_AXI](.aclk(clk));
-metaIntf #(.STYPE(ack_t))     cq_wr_strm  [N_STRM_AXI](.aclk(clk));
-metaIntf #(.STYPE(irq_not_t)) notify_strm [N_STRM_AXI](.aclk(clk));
+metaIntf #(.STYPE(req_t))     sq_wr_strm  [N_STRM_AXI](.aclk(clk), .aresetn(reset_synced));
+metaIntf #(.STYPE(ack_t))     cq_wr_strm  [N_STRM_AXI](.aclk(clk), .aresetn(reset_synced));
+metaIntf #(.STYPE(irq_not_t)) notify_strm [N_STRM_AXI](.aclk(clk), .aresetn(reset_synced));
 
 MetaIntfArbiter #(
   .N_INTERFACES(N_STRM_AXI),

@@ -19,8 +19,8 @@ localparam TOTAL_WIDTH = FIFO_WIDTH * FACTOR;
 
 logic[TOTAL_WIDTH - 1:0] data_flattened;
 
-AXI4S #(DATA_WIDTH) axis_fifo(.aclk(aclk));
-AXI4S #(DATA_WIDTH) axis_reg(.aclk(aclk));
+AXI4S #(DATA_WIDTH) axis_fifo(.aclk(clk), .aresetn(rst_n));
+AXI4S #(DATA_WIDTH) axis_reg (.aclk(clk), .aresetn(rst_n));
 
 genvar i;
 generate

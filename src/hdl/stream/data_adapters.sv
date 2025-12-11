@@ -81,7 +81,7 @@ localparam AXI_ELEMENT_SIZE = AXI_ELEMENT_WIDTH / 8;
 `ASSERT_ELAB($bits(data_t) <= AXI_ELEMENT_WIDTH)
 `ASSERT_ELAB(NUM_ELEMENTS == NUM_AXI_ELEMENTS || NUM_ELEMENTS == NUM_AXI_ELEMENTS / 2)
 
-AXI4S #(AXI_ELEMENT_WIDTH * NUM_ELEMENTS) internal(.aclk(clk));
+AXI4S #(AXI_ELEMENT_WIDTH * NUM_ELEMENTS) internal(.aclk(clk), .aresetn(rst_n));
 
 AXIWidthConverter inst_width_converter (
     .clk(clk),
