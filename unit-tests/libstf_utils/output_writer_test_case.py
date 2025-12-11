@@ -125,7 +125,7 @@ class OutputWriterMixin(fpga_test_case.FPGATestCase):
             self.expected_output[stream] = []
         # If the output is not empty, assert its of the same kind
         if len(self.expected_output[stream]) > 0:
-            last_output = self.expected_output[-1]
+            last_output = self.expected_output[stream][-1]
             assert type(last_output) is type(output), (
                 "We only support one type of output per stream. "
                 + f"Stream {stream} got {type(last_output)} and {type(output)}."
