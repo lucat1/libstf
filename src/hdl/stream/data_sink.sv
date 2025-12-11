@@ -51,7 +51,7 @@ assign enable.ready       = !enable_sink_valid || was_last_data_beat;
 // signals but forward the last signal as valid such that the modules after know that the stream has
 // finished without getting any data.
 
-assign in.ready = enable_sink_valid && (!enable_sink || in.last) ? internal.ready : 1'b1;
+assign in.ready = enable_sink_valid ? (!enable_sink || in.last ? internal.ready : 1'b1) : 1'b0;
 
 assign internal.data  = in.data;
 assign internal.keep  = enable_sink_valid && !enable_sink ? in.keep : '0;
