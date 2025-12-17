@@ -51,12 +51,12 @@ assign enable.ready       = !enable_sink_valid || was_last_data_beat;
 // signals but forward the last signal as valid such that the modules after know that the stream has
 // finished without getting any data.
 
-assign in.ready = enable_sink_valid ? (!enable_sink || in.last ? internal.ready : 1'b1) : 1'b0;
+assign in.ready = enable_sink_valid ? (!enable_sink ? internal.ready : 1'b1) : 1'b0;
 
 assign internal.data  = in.data;
-assign internal.keep  = enable_sink_valid && !enable_sink ? in.keep : '0;
+assign internal.keep  = in.keep;
 assign internal.last  = in.last;
-assign internal.valid = enable_sink_valid && (!enable_sink || in.last) ? in.valid : 1'b0;
+assign internal.valid = enable_sink_valid && !enable_sink ? in.valid : 1'b0;
 
 generate if (ENABLE_SKID_BUFFER) begin
     NDataSkidBuffer #(data_t, NUM_ELEMENTS) inst_skid_buffer (.clk(clk), .rst_n(rst_n), .in(internal), .out(out));
