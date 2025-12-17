@@ -157,7 +157,7 @@ FIFO #(
 
 // -- Output logic ---------------------------------------------------------------------------------
 typedef enum logic[2:0] {
-    WAIT_VADDR = 0,
+    WAIT_FOR_BUFFER = 0,
     REQUEST = 1,
     TRANSFER = 2,
     WAIT_COMPLETION = 3,
@@ -177,7 +177,7 @@ vaddress_t bytes_written_to_allocation;
 // Possible performance optimization: Become ready earlier such that
 // WAITING for the address takes at most 1 cycle.
 // However: Pay attention that you don't immediately read two addresses.
-assign buffer.ready = output_state == WAIT_VADDR;
+assign buffer.ready = output_state == WAIT_FOR_BUFFER;
 
 // Tracking of the amount of data we have written in the current transfer
 localparam BEAT_BITS = $clog2(AXI_DATA_BYTES);
@@ -254,16 +254,16 @@ end
 // -- State machine --------------------------------------------------------------------------------
 always_ff @(posedge clk) begin
     if (reset_synced == 1'b0) begin
-        output_state <= WAIT_VADDR;
+        output_state <= WAIT_FOR_BUFFER;
     end else begin
         case(output_state)
-            WAIT_VADDR: begin
+            WAIT_FOR_BUFFER: begin
                 if (buffer.valid) begin
                     // Reset the current state
-                    bytes_written_to_allocation <= 0;
-                    num_requests                <= 0;
-                    num_completed_transfers     <= 0;
-                    last_transfer               <= 0;
+                    bytes_written_to_allocation <= '0;
+                    num_requests                <= '0;
+                    num_completed_transfers     <= '0;
+                    last_transfer               <= 1'b0;
 
                     // Get the memory address & size
                     vaddr           <= buffer.data.vaddr;
@@ -327,14 +327,22 @@ always_ff @(posedge clk) begin
             WAIT_COMPLETION: begin
                 if (all_transfers_completed) begin
                     if (notify.ready) begin
-                        output_state <= WAIT_VADDR;
+                        output_state <= WAIT_FOR_BUFFER;
                     end else begin
                         output_state <= WAIT_NOTIFY;
                     end
                 end end
             WAIT_NOTIFY: begin
                 if (notify.ready) begin
-                    output_state <= WAIT_VADDR;
+                    // If no bytes were written, we can just reuse the current buffer for the next 
+                    // stream so we null the last_transfer signal and jump to the REQUEST state.
+                    // Otherwise, we fetch the next buffer in in the WAIT_ADDR state.
+                    if (bytes_written_to_allocation == 0) begin
+                        last_transfer <= 1'b0;
+                        output_state  <= REQUEST;
+                    end else begin
+                        output_state <= WAIT_FOR_BUFFER;
+                    end
                 end end
             default:;
         endcase
