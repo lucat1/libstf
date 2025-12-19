@@ -46,6 +46,9 @@ typedef enum logic[2:0] {
     DOUBLE_T
 } type_t;
 
+localparam MEM_CONFIG_ID    = 0;
+localparam STREAM_CONFIG_ID = 1;
+
 // Constant function to return the bit width of type_t types
 function automatic int GET_TYPE_WIDTH(type_t data_type);
     case (data_type)

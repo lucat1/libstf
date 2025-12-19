@@ -28,50 +28,51 @@ assign clk   = aclk;
 assign rst_n = aresetn;
 
 // -- Signals --------------------------------------------------------------------------------------
-AXI4S axi_host_recv_0(.aclk(clk));
-AXI4S axi_host_recv_1(.aclk(clk));
+AXI4S axi_host_recv_0(.aclk(clk), .aresetn(rst_n));
+AXI4S axi_host_recv_1(.aclk(clk), .aresetn(rst_n));
 
 ndata_i #(data32_t, NUM_IDS) dict_ids();
 typed_ndata_i #(DATABEAT_SIZE) dict_values();
 typed_ndata_i #(DATABEAT_SIZE) dict_out();
 
-AXI4S axi_out[N_STRM_AXI](.aclk(clk));
+AXI4S axi_out[N_STRM_AXI](.aclk(clk), .aresetn(rst_n));
 
 // -- Configuration -------------------------------------------------------------------------------
-config_i configs[1]();
+write_config_i write_configs[1](.*);
+read_config_i  read_configs [1](.*);
 GlobalConfig #(
+    .SYSTEM_ID(0),
     .NUM_CONFIGS(1),
-    .ADDR_SPACE_BOUNDS({0, 2 * N_STRM_AXI})
+    .ADDR_SPACE_SIZES({2})
 ) inst_config (
     .clk(clk),
     .rst_n(rst_n),
 
     .axi_ctrl(axi_ctrl),
-    .configs(configs)
+
+    .write_configs(write_configs),
+    .read_configs(read_configs)
 );
 
-stream_config_i #(2) stream_config[N_STRM_AXI]();
+stream_config_i #(2) stream_config[1](.*);
 StreamConfig #(
     .NUM_SELECT(2),
-    .NUM_STREAMS(N_STRM_AXI)
+    .NUM_STREAMS(1)
 ) inst_stream_config (
     .clk(clk),
     .rst_n(rst_n),
 
-    .conf(configs[0]),
+    .write_config(write_configs[0]),
+    .read_config(read_configs[0]),
+
     .out(stream_config)
 );
 
-ready_valid_i #(type_t)   data_type();
-ready_valid_i #(select_t) select_0();
-ready_valid_i #(select_t) select_1();
+ready_valid_i #(type_t) data_type();
 
 `CONFIG_SIGNALS_TO_INTF(stream_config[0].data_type, data_type)
-`CONFIG_SIGNALS_TO_INTF(stream_config[0].select, select_0)
-`CONFIG_SIGNALS_TO_INTF(stream_config[1].select, select_1)
 
-assign select_0.ready = 1'b1;
-assign select_1.ready = 1'b1;
+assign stream_config[0].select_ready = 1'b1;
 
 // -- Input multiplexing ---------------------------------------------------------------------------
 // Values

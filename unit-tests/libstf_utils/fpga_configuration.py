@@ -1,8 +1,54 @@
-from coyote_test import constants, fpga_register
+from coyote_test import constants, fpga_register, fpga_test_case
 from typing import List
 from unit_test.fpga_stream import StreamType
 from libstf_utils.common import INTERRUPT_TRANSFER_SIZE_BITS
 
+
+class GlobalConfig:
+    """
+    A global configuration, which contains the system id, number of configurations, the 
+    subconfigurations address spaces and ids.
+    """
+    
+    def __init__(self, test_case: fpga_test_case.FPGATestCase):
+        self._test_case = test_case
+        self.system_id = None
+        self.num_configs = None
+        self._addr_spaces = None
+        self._config_ids = None
+
+    def init(self):
+        """
+        We initialize this lazily because the simulation has to be running already for read_register
+        to return.
+        """
+
+        self.system_id   = self._test_case.read_register(0)
+        self.num_configs = self._test_case.read_register(1)
+
+        self._addr_spaces = [2 + self.num_configs] + [None for _ in range(self.num_configs)]
+        self._config_ids = [None for _ in range(self.num_configs)]
+
+        for i in range(self.num_configs):
+            self._addr_spaces[i + 1] = self._test_case.read_register(2 + i)
+            self._set_config_id(i, self._test_case.read_register(self._addr_spaces[i])) 
+
+    def _set_config_id(self, config_idx: int, config_id: int):
+        assert config_id not in self._config_ids
+
+        self._config_ids[config_idx] = config_id
+
+    def get_config_bounds(self, config_id: int):
+        assert self.has_config(config_id)
+
+        config_idx = self._config_ids.index(config_id)
+        return (self._addr_spaces[config_idx], self._addr_spaces[config_idx + 1])
+    
+    def has_config(self, config_id: int):
+        if self.system_id is None:
+            self.init()
+
+        return config_id in self._config_ids
 
 # Most general configuration class
 # Configures which stream is valid and the stream types
@@ -37,13 +83,15 @@ class StreamConfig:
 
 
 class MemConfig:
-    def __init__(self, offset: int, stream_id: int, vaddr: int, size: int):
+    ID = 0
+
+    def __init__(self, global_config: GlobalConfig, stream_id: int, vaddr: int, size: int):
         """
         Creates a new configuration, which tells the FPGA to use the memory region starting from 
-        vaddr and over size bytes to send the output of stream with id stream_id. Offset is the 
-        start of the memory configuration registers. 
+        vaddr and over size bytes to send the output of stream with id stream_id. GlobalConfig is 
+        used to fetch the address space offset of this config. 
         """
-        self.offset = offset
+        self.global_config = global_config
         self.stream_id = stream_id
         self.vaddr = vaddr
         self.size = size
@@ -60,9 +108,11 @@ class MemConfig:
         return bytearray(value.to_bytes(8, constants.BYTE_ORDER))
 
     def to_register_configuration(self) -> List[fpga_register.vFPGARegister]:
+        offset = self.global_config.get_config_bounds(MemConfig.ID)[0]
+
         # Determine the id of the register
-        vaddr_reg_id = self.offset + 2 * self.stream_id
-        size_reg_id  = self.offset + 2 * self.stream_id + 1
+        vaddr_reg_id = offset + 2 * self.stream_id
+        size_reg_id  = offset + 2 * self.stream_id + 1
 
         return [
             fpga_register.vFPGARegister(

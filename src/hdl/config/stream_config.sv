@@ -10,7 +10,9 @@ module StreamConfig #(
     input logic clk,
     input logic rst_n,
 
-    config_i.s      conf,
+    write_config_i.s write_config,
+    read_config_i.s  read_config,
+
     stream_config_i.m out[NUM_STREAMS] // #(SELECT_WIDTH)
 );
 
@@ -19,6 +21,8 @@ localparam NUM_REGISTERS = 2;
 localparam MAX_OUTSTANDING_STREAMS = 64;
 
 typedef logic[SELECT_WIDTH - 1:0] select_t;
+
+ConfigReadRegister #(0, data8_t) inst_id_reg (clk, rst_n, read_config, data8_t'(STREAM_CONFIG_ID));
 
 for (genvar I = 0; I < NUM_STREAMS; I++) begin
     ready_valid_i #(select_t) select();

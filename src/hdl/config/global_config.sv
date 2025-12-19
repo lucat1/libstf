@@ -4,271 +4,193 @@
 `include "axi_intf.sv"
 `include "libstf_macros.svh"
 
-//
-// This module handles the configuration of the design
-// It reads/write configuration messages via the axi_ctrl stream
-// and provides them to the outside as in/output
-//
-// The configuration values are essential to the design. However, given that their number is 
-// quite large by now, there where problems during synthesis with paths becoming too long.
-// Therefore, we moved everything but the manual registers (see below) into own modules.
-// We can write to these modules via three simple registers (valid, address, data)
-// and they then perform the task of splitting this data into the correct configuration values.
-// However: With this split comes another problem. Due to the different configurations being used
-// in different paths of the design but all being inferred from this module, the path to write to
-// those sub-modules was also becoming too long! This also due to different paths of the design
-// being placed into different SLRs. 
-// Therefore: We implement additional shift register. Those registers simply pass the data through.
-// But due to the use of additional registers, the routing becomes easier and the paths shorter!
-// See the usage of this module below.
-//
+/**
+ * This module handles the configuration of the design. As the first parameter, it takes a system id 
+ * that should be a unique identifier so the software side can check which design is loaded to the 
+ * FPGA. It also takes a number of configurations and their address space bounds.
+ *
+ * On the axi_ctrl input, it receives configuration messages and forwards them to the corresponding 
+ * configuration based on the address spaces.
+ */
 module GlobalConfig #(
+    parameter integer SYSTEM_ID,
     parameter integer NUM_CONFIGS,
-    parameter integer ADDR_SPACE_BOUNDS[NUM_CONFIGS + 1]
+    parameter integer ADDR_SPACE_SIZES[NUM_CONFIGS]
 ) (
-    // Clock and reset
     input logic clk,
     input logic rst_n,
 
-    // Control stream -> Used for configuration
-    AXI4L.s          axi_ctrl,
+    AXI4L.s axi_ctrl,
 
-    // Configurations
-    config_i.m       configs[NUM_CONFIGS]
+    write_config_i.m write_configs[NUM_CONFIGS],
+    read_config_i.m  read_configs[NUM_CONFIGS]
 );
 
 `RESET_RESYNC // Reset pipelining
 
-// -- Internal registers -------------------------------------------------------------------
+// -- Global parameters ----------------------------------------------------------------------------
+typedef integer bounds_t[NUM_CONFIGS + 2];
+
+localparam integer NUM_GLOBAL_REGS = 2 + NUM_CONFIGS;
+
+// Prefix sum including the global read registers
+function automatic bounds_t get_read_bounds();
+    bounds_t result;
+    result[0] = 0;
+    result[1] = NUM_GLOBAL_REGS;
+
+    for (int i = 0; i < NUM_CONFIGS; i++) begin
+        result[i + 2] = result[i + 1] + ADDR_SPACE_SIZES[i];
+    end
+
+    return result;
+endfunction;
+
+localparam bounds_t ADDR_SPACE_BOUNDS = get_read_bounds();
+localparam integer NUM_TOTAL_REGS  = ADDR_SPACE_BOUNDS[NUM_CONFIGS + 1];
+
 // Note: We read the address shifted to the right by ADDR_LSB (3)
 // The reason is that the address is supposed to address bytes,
-// not registers!
+// not registers but we work based on registers!
 // Every register has AXIL_DATA_BITS (64) bits/8 bytes
 // -> We shift the address by 3 bit to the right
 //    To address the whole register!
-localparam integer ADDR_LSB = $clog2(AXIL_DATA_BITS/8);
-localparam integer ADDR_MSB = $clog2(ADDR_SPACE_BOUNDS[NUM_CONFIGS]);
-localparam integer AXI2_ADDR_BITS = ADDR_LSB + ADDR_MSB; // TODO: Enable again
+localparam integer ADDR_LSB = $clog2(AXIL_DATA_BITS / 8);
+localparam integer ADDR_MSB = $clog2(NUM_TOTAL_REGS);
+localparam integer AXI_ADDR_BITS = ADDR_LSB + ADDR_MSB;
 
-logic [AXI_ADDR_BITS-1:0] axi_awaddr;
-logic axi_awready;
-logic [AXI_ADDR_BITS-1:0] axi_araddr;
-logic axi_arready;
-logic [1:0] axi_bresp;
-logic axi_bvalid;
-logic axi_wready;
-logic [AXIL_DATA_BITS-1:0] axi_rdata;
-logic [1:0] axi_rresp;
-logic axi_rvalid;
+// Response status codes
+localparam logic[1:0] RESP_OKAY   = 2'b00;
+localparam logic[1:0] RESP_DECERR = 2'b11;
 
-logic any_wstrb_valid;
-logic slv_reg_rden;
-logic slv_reg_wren;
-logic aw_en;
+// =================================================================================================
+// Write
+// =================================================================================================
 
-// Sub configurations
-config_i pre_splitter_config();
-config_i internal_configs[NUM_CONFIGS]();
+// Note: It is possible that the write address & data are valid but there is no valid data to write
+//       (axi_ctrl.wstrb is all zeroes). In this case we cannot set the register to valid as this 
+//       case is different from writing all zero to the registers.
+// -> We track whether there is any valid data to determine if the register is actually written.
+logic any_wstrb;
+assign any_wstrb = |axi_ctrl.wstrb;
 
-for (genvar I = 0; I < NUM_CONFIGS; I++) begin
-    ShiftRegister #(.WIDTH(AXI_ADDR_BITS + AXIL_DATA_BITS + 1), .LEVELS(1)) inst_shift_reg (
-        .i_clk(clk),
-        .i_rst_n(reset_synced),
-
-        .i_data({internal_configs[I].addr, internal_configs[I].data, internal_configs[I].valid}),
-        .o_data({         configs[I].addr,          configs[I].data,          configs[I].valid})
-    );
-end
-
-// -- READ/WRITE handling -----------------------------------------------------------------------
-
-// Write process
-localparam N_WRT_STRB = (AXIL_DATA_BITS/8);
-
-// Whether there is any valid data
-// Note: It can be that the write address & data are valid but there is no valid data to write.
-//       In these cases we cannot set the register to valid as this case is different from writing
-//       all zero to the registers.
-// -> We track whether there is any valid data to determine if the register below become valid.
-assign any_wstrb_valid = |axi_ctrl.wstrb;
-
-assign slv_reg_wren = axi_wready && axi_ctrl.wvalid && axi_awready && axi_ctrl.awvalid;
+write_config_i pre_write_splitter_config(.clk(clk), .rst_n(reset_synced));
 
 always_ff @(posedge clk) begin
     if (reset_synced == 1'b0) begin
-        pre_splitter_config.valid <= 1'b0;
+        pre_write_splitter_config.valid <= 1'b0;
     end else begin
-        if (slv_reg_wren) begin
-            pre_splitter_config.addr <= axi_awaddr[ADDR_LSB+:ADDR_MSB];
-            for (int j = 0; j < N_WRT_STRB; j++) begin
-                if (axi_ctrl.wstrb[j]) begin
-                    pre_splitter_config.data[(j * 8)+:8] <= axi_ctrl.wdata[(j * 8)+:8];
-                end else begin
-                    pre_splitter_config.data[(j * 8)+:8] <= '0;
-            end
+        if (axi_ctrl.awvalid && axi_ctrl.wvalid) begin // Address and data valid
+            pre_write_splitter_config.data  <= axi_ctrl.wdata;
+            pre_write_splitter_config.addr  <= axi_ctrl.awaddr[ADDR_LSB+:ADDR_MSB];
+            pre_write_splitter_config.valid <= any_wstrb;
+        end else begin
+            pre_write_splitter_config.valid <= 1'b0;
         end
-        pre_splitter_config.valid <= any_wstrb_valid;
-    end else begin
-        pre_splitter_config.valid <= '0;
-    end
     end
 end
 
-ConfigSplitter #(
+WriteConfigSplitter #(
     .NUM_CONFIGS(NUM_CONFIGS),
-    .ADDR_SPACE_BOUNDS(ADDR_SPACE_BOUNDS)
-) inst_config_splitter (
+    .ADDR_SPACE_BOUNDS(ADDR_SPACE_BOUNDS[1:NUM_CONFIGS + 1])
+) inst_write_config_splitter (
     .clk(clk),
-    .rst_n(rst_n),
+    .rst_n(reset_synced),
 
-    .in(pre_splitter_config),
-    .out(internal_configs)
+    .in(pre_write_splitter_config),
+    .out(write_configs)
 );
 
-// Read process
-assign slv_reg_rden = axi_arready & axi_ctrl.arvalid & ~axi_rvalid;
+// -- AXI4L handshaking logic ----------------------------------------------------------------------
 
+// Write address & data
+assign axi_ctrl.awready = axi_ctrl.wvalid;
+assign axi_ctrl.wready  = axi_ctrl.awvalid;
+
+// Write acknowledge
+assign axi_ctrl.bresp = axi_ctrl.awaddr < NUM_TOTAL_REGS * AXIL_DATA_BITS / 8 ? RESP_OKAY : RESP_DECERR; 
 always_ff @(posedge clk) begin
-  if(reset_synced == 1'b0) begin
-    axi_rdata <= 0;
-  end else begin
-    if(slv_reg_rden) begin
-      if (axi_araddr[ADDR_LSB+:ADDR_MSB] == 0) begin
-        // axi_rdata <= required_cycles; TODO: Add reading from registers
-    `ifndef SYNTHESIS
-      end else begin
-        $display("DID NOT FIND A MATCH FOR READING FROM reg %d", axi_araddr[ADDR_LSB+:ADDR_MSB]);
-    `endif
-      end
-    end
-  end
-end
-
-// --------------------------------------------------------------------------------------
-// AXI CTRL - Don't edit!
-// --------------------------------------------------------------------------------------
-
-// I/O
-assign axi_ctrl.awready = axi_awready;
-assign axi_ctrl.arready = axi_arready;
-assign axi_ctrl.bresp = axi_bresp;
-assign axi_ctrl.bvalid = axi_bvalid;
-assign axi_ctrl.wready = axi_wready;
-assign axi_ctrl.rdata = axi_rdata;
-assign axi_ctrl.rresp = axi_rresp;
-assign axi_ctrl.rvalid = axi_rvalid;
-
-// awready and awaddr
-always_ff @(posedge clk) begin
-  if (reset_synced == 1'b0)
-    begin
-      axi_awready <= 1'b0;
-      axi_awaddr <= 0;
-      aw_en <= 1'b1;
-    end
-  else
-    begin
-      if (~axi_awready && axi_ctrl.awvalid && axi_ctrl.wvalid && aw_en)
-        begin
-          axi_awready <= 1'b1;
-          aw_en <= 1'b0;
-          axi_awaddr <= axi_ctrl.awaddr;
-        end
-      else if (axi_ctrl.bready && axi_bvalid)
-        begin
-          aw_en <= 1'b1;
-          axi_awready <= 1'b0;
-        end
-      else
-        begin
-          axi_awready <= 1'b0;
+    if (reset_synced == 1'b0) begin
+        axi_ctrl.bvalid <= 1'b0;
+    end else begin
+        if (axi_ctrl.awvalid && axi_ctrl.wvalid) begin
+            axi_ctrl.bvalid <= 1'b1;
+        end else if (axi_ctrl.bready) begin
+            axi_ctrl.bvalid <= 1'b0;
         end
     end
 end
 
-// arready and araddr
+// =================================================================================================
+// Read
+// =================================================================================================
+read_config_i pre_read_splitter_config(.clk(clk), .rst_n(reset_synced));
+read_config_i internal_read_configs[NUM_CONFIGS + 1](.clk(clk), .rst_n(reset_synced));
+
 always_ff @(posedge clk) begin
-  if (reset_synced == 1'b0)
-    begin
-      axi_arready <= 1'b0;
-      axi_araddr  <= 0;
-    end
-  else
-    begin
-      if (~axi_arready && axi_ctrl.arvalid)
-        begin
-          axi_arready <= 1'b1;
-          axi_araddr  <= axi_ctrl.araddr;
-        end
-      else
-        begin
-          axi_arready <= 1'b0;
+    if(reset_synced == 1'b0) begin
+        pre_read_splitter_config.read_valid <= 1'b0;
+    end else begin
+        if (pre_read_splitter_config.read_ready) begin
+            pre_read_splitter_config.read_addr  <= axi_ctrl.araddr[ADDR_LSB+:ADDR_MSB];
+            pre_read_splitter_config.read_valid <= axi_ctrl.arvalid;
         end
     end
 end
 
-// bvalid and bresp
-always_ff @(posedge clk) begin
-  if (reset_synced == 1'b0)
-    begin
-      axi_bvalid  <= 0;
-      axi_bresp   <= 2'b0;
-    end
-  else
-    begin
-      if (axi_awready && axi_ctrl.awvalid && ~axi_bvalid && axi_wready && axi_ctrl.wvalid)
-        begin
-          axi_bvalid <= 1'b1;
-          axi_bresp  <= 2'b0;
-        end
-      else
-        begin
-          if (axi_ctrl.bready && axi_bvalid)
-            begin
-              axi_bvalid <= 1'b0;
-            end
-        end
-    end
+ReadConfigSplitter #(
+    .NUM_CONFIGS(NUM_CONFIGS + 1),
+    .ADDR_SPACE_BOUNDS(ADDR_SPACE_BOUNDS)
+) inst_read_config_splitter (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .in(pre_read_splitter_config),
+    .out(internal_read_configs)
+);
+
+// Global register file for system id, number of configurations and configuration address spaces
+logic[AXIL_DATA_BITS - 1:0] global_registers[NUM_GLOBAL_REGS];
+
+assign global_registers[0] = SYSTEM_ID;
+assign global_registers[1] = NUM_CONFIGS;
+
+for (genvar I = 0; I < NUM_CONFIGS; I++) begin
+    assign global_registers[I + 2] = ADDR_SPACE_BOUNDS[I + 2];
 end
 
-// wready
-always_ff @(posedge clk) begin
-  if (reset_synced == 1'b0)
-    begin
-      axi_wready <= 1'b0;
-    end
-  else
-    begin
-      if (~axi_wready && axi_ctrl.wvalid && axi_ctrl.awvalid && aw_en )
-        begin
-          axi_wready <= 1'b1;
-        end
-      else
-        begin
-          axi_wready <= 1'b0;
-        end
-    end
+ConfigReadRegisterFile #(
+    .NUM_REGS(NUM_GLOBAL_REGS)
+) inst_read_config_arbiter (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .in(internal_read_configs[0]),
+    .values(global_registers)
+);
+
+// All other read configs
+for (genvar I = 0; I < NUM_CONFIGS; I++) begin
+    assign read_configs[I].read_addr  = internal_read_configs[I + 1].read_addr;
+    assign read_configs[I].read_valid = internal_read_configs[I + 1].read_valid;
+    assign internal_read_configs[I + 1].read_ready = read_configs[I].read_ready;
+
+    assign internal_read_configs[I + 1].resp_data  = read_configs[I].resp_data;
+    assign internal_read_configs[I + 1].resp_error = read_configs[I].resp_error;
+    assign internal_read_configs[I + 1].resp_valid = read_configs[I].resp_valid;
+    assign read_configs[I].resp_ready = internal_read_configs[I + 1].resp_ready;
 end
 
-// rvalid and rresp (1Del?)
-always_ff @(posedge clk) begin
-  if (reset_synced == 1'b0)
-    begin
-      axi_rvalid <= 0;
-      axi_rresp  <= 0;
-    end
-  else
-    begin
-      if (axi_arready && axi_ctrl.arvalid && ~axi_rvalid)
-        begin
-          axi_rvalid <= 1'b1;
-          axi_rresp  <= 2'b0;
-        end
-      else if (axi_rvalid && axi_ctrl.rready)
-        begin
-          axi_rvalid <= 1'b0;
-        end
-    end
-end
+// -- AXI4L handshaking logic ----------------------------------------------------------------------
+
+// Read address
+assign axi_ctrl.arready = pre_read_splitter_config.read_ready;
+
+// Read response: rvalid and rresp
+assign axi_ctrl.rdata  = pre_read_splitter_config.resp_data;
+assign axi_ctrl.rresp  = pre_read_splitter_config.resp_error ? RESP_DECERR : RESP_OKAY;
+assign axi_ctrl.rvalid = pre_read_splitter_config.resp_valid;
+
+assign pre_read_splitter_config.resp_ready = axi_ctrl.rready;
 
 endmodule

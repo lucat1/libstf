@@ -8,19 +8,19 @@ module ConfigWriteFIFO #(
     input logic clk,
     input logic rst_n,
 
-    config_i.s      conf,
-    ready_valid_i.m data // #(data_t)
+    write_config_i.s write_config,
+    ready_valid_i.m  data // #(data_t)
 );
 
 logic valid;
 
-assign valid = conf.valid && conf.addr == ADDR;
+assign valid = write_config.valid && write_config.addr == ADDR;
 
 FIFO #(DEPTH, $bits(data_t)) inst_fifo (
     .i_clk(clk),
     .i_rst_n(rst_n),
 
-    .i_data(data_t'(conf.data)),
+    .i_data(data_t'(write_config.data)),
     .i_valid(valid),
     .i_ready(),
 

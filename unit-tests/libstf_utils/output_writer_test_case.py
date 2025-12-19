@@ -1,21 +1,21 @@
 # Small extension to the FPGATestCase and FPGAPerformanceTestCase classes with behavior specific to 
 # tests with an output writer.
 from coyote_test import (
-    fpga_test_case,
     fpga_performance_test_case,
     fpga_stream,
     simulation_time,
     io_writer,
 )
 from unit_test.utils.thread_handler import SafeThread
+from libstf_utils.configured_test_case import ConfiguredTestCase
 from libstf_utils.memory_manager import FPGAOutputMemoryManager
 from typing import Union, List, Dict, Optional
 import threading
 
 
-class OutputWriterMixin(fpga_test_case.FPGATestCase):
+class OutputWriterMixin(ConfiguredTestCase):
     """
-    This class provides all the needed extensions for the DBOps FPGATestCases.
+    This class provides all the needed extensions for the FPGATestCases.
     It gets mixed in below into the "normal" and the "performance" test case classes.
     Do NOT use this class directly.
     """
@@ -24,7 +24,7 @@ class OutputWriterMixin(fpga_test_case.FPGATestCase):
         super().setUp()
         self.memory_manager = FPGAOutputMemoryManager(
             self.get_io_writer(),
-            0,
+            self.global_config,
             all_done_callback=self.memory_manager_all_done_callback_spawner,
         )
         # Streams who's output is expected on the card stream
@@ -71,23 +71,16 @@ class OutputWriterMixin(fpga_test_case.FPGATestCase):
         # the simulation can terminate.
         self.get_io_writer().all_input_done()
 
-    def simulate_fpga(self):
-        # Replaces the default implementation with one that does
-        # not perform and transfers from the host.
-        # Note: The Memory Manager will call the "input_close"
-        # once all output has been received
-
-        # Run the simulation till its finished!
-        self.simulate_fpga_non_blocking()
+    def simulate_fpga_non_blocking(self):
+        self.overwrite_simulation_time(simulation_time.SimulationTime.till_finished())
+        return super().simulate_fpga_non_blocking()
+    
+    def finish_fpga_simulation(self):
         super().finish_fpga_simulation()
 
         # Wait for the CARD memory thread, if it exists
         if self.card_thread is not None:
             self.card_thread.join_blocking()
-
-    def simulate_fpga_non_blocking(self):
-        self.overwrite_simulation_time(simulation_time.SimulationTime.till_finished())
-        return super().simulate_fpga_non_blocking()
 
     def set_expected_output(
         self,

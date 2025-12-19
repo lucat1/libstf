@@ -26,12 +26,16 @@ class OutputWriterTest(OutputWriterTestCase):
     def simulate_fpga(self):
         assert len(self.streams) > 0, "Cannot perform output test with 0 streams"
 
+        self.simulate_fpga_non_blocking()
+        
         # Set the input & output
+        # We need to do this after starting the simulation non-blocking so the OutputWriterTestCase
+        # can do configuration discovery and find the registers to write the buffer handles to.
         for id, stream in enumerate(self.streams):
             self.set_stream_input(id, stream)
             self.set_expected_output(id, stream)
 
-        super().simulate_fpga()
+        self.finish_fpga_simulation()
 
     def overwrite_memory_manager(self, allocation_size: int, transfer_size: int):
         """
@@ -39,7 +43,10 @@ class OutputWriterTest(OutputWriterTestCase):
         Also sets those values for the simulation
         """
         self.memory_manager = FPGAOutputMemoryManager(
-            self.get_io_writer(), 0, allocation_size, transfer_size
+            self.get_io_writer(), 
+            self.global_config, 
+            allocation_size, 
+            transfer_size
         )
         self.set_system_verilog_defines(
             {TRANSFER_SIZE_BYTES_OVERWRITE: str(transfer_size)}
@@ -169,12 +176,14 @@ class OutputWriterPerformanceTest(OutputWriterPerformanceTestCase):
     def simulate_fpga(self):
         assert len(self.streams) > 0, "Cannot perform output test with 0 streams"
 
+        self.simulate_fpga_non_blocking()
+
         # Set the input & output
         for id, stream in enumerate(self.streams):
             self.set_stream_input(id, stream)
             self.set_expected_output(id, stream)
 
-        super().simulate_fpga()
+        self.finish_fpga_simulation()
 
     def test_streaming_through_performance(self):
         # Arrange

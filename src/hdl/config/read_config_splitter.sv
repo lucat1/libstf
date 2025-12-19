@@ -1,0 +1,124 @@
+`timescale 1ns / 1ps
+
+/**
+ * All read/write requests from 'in' are broadcast to all 'out' ports. Responses come back from
+ * the downstream read registers (only one should respond per read based on address decoding). The 
+ * module tracks which reads are outstanding and forwards responses back in read request order.
+ */
+module ReadConfigSplitter #(
+    parameter integer NUM_CONFIGS,
+    parameter integer ADDR_SPACE_BOUNDS[NUM_CONFIGS + 1],
+    parameter integer FIFO_DEPTH = 64
+) (
+    input logic clk,
+    input logic rst_n,
+
+    read_config_i.s in,
+    read_config_i.m out[NUM_CONFIGS]
+);
+
+`RESET_RESYNC // Reset pipelining
+
+`ASSERT_ELAB(NUM_CONFIGS > 1)
+`ASSERT_ELAB(ADDR_SPACE_BOUNDS[0] == 0)
+
+localparam FIFO_WIDTH = $clog2(NUM_CONFIGS);
+
+assert property (@(posedge clk) disable iff (!reset_synced) !in.read_valid || in.read_addr < ADDR_SPACE_BOUNDS[NUM_CONFIGS])
+else $fatal(1, "Read address %0d is out-of-bounds!", in.read_addr);
+
+logic[NUM_CONFIGS:0]     smaller_than_bound;
+logic[NUM_CONFIGS - 1:0] addr_matches;
+
+logic[FIFO_WIDTH - 1:0] read_port, fifo_port;
+logic                   read_port_valid, read_port_ready, fifo_port_valid;
+
+logic[NUM_CONFIGS - 1:0] out_read_ready;
+logic out_ready;
+
+logic[AXIL_DATA_BITS - 1:0][NUM_CONFIGS - 1:0] out_resp_data;
+logic[NUM_CONFIGS - 1:0] out_resp_error, out_resp_valid;
+
+logic[AXIL_DATA_BITS - 1:0] resp_data_mux;
+logic                       resp_error_mux;
+
+logic[NUM_CONFIGS - 1:0] port_matches;
+logic do_return;
+
+// Forward incoming reads to the corresponding output
+assign in.read_ready = out_ready && read_port_ready;
+
+assign smaller_than_bound[0]           = 1'b0; // Always larger or equal to 0
+assign smaller_than_bound[NUM_CONFIGS] = 1'b1; // Always forward to last config as a backup so it can handle out of bounds errors
+
+for (genvar I = 0; I < NUM_CONFIGS - 1; I++) begin
+    assign smaller_than_bound[I + 1] = (in.read_addr < ADDR_SPACE_BOUNDS[I + 1]) === 1'b1;
+end
+
+for (genvar I = 0; I < NUM_CONFIGS; I++) begin
+    assign addr_matches[I] = !smaller_than_bound[I] && smaller_than_bound[I + 1];
+
+    assign out[I].read_addr  = in.read_addr;
+    assign out[I].read_valid = addr_matches[I] ? in.read_valid && read_port_ready : 1'b0;
+
+    assign out_read_ready[I] = out[I].read_ready;
+end
+
+assign out_ready = |(addr_matches & out_read_ready); 
+
+// Store read port in FIFO
+always_comb begin
+    read_port = '0;
+
+    for (int i = 0; i < NUM_CONFIGS; i++) begin
+        read_port |= addr_matches[i] ? i : '0;
+    end
+end
+
+assign read_port_valid = out_ready && in.read_valid;
+
+// FIFO stores addresses of outstanding reads to match responses
+FIFO #(
+    .DEPTH(FIFO_DEPTH),
+    .WIDTH(FIFO_WIDTH)
+) inst_read_fifo (
+    .i_clk(clk),
+    .i_rst_n(reset_synced),
+
+    .i_data (read_port),
+    .i_valid(read_port_valid),
+    .i_ready(read_port_ready), // We assume that there is always space
+
+    .o_data (fifo_port),
+    .o_valid(fifo_port_valid),
+    .o_ready(do_return)
+);
+
+// Only ready to receive responses when we can forward them upstream
+for (genvar I = 0; I < NUM_CONFIGS; I++) begin
+    assign port_matches[I]   = fifo_port == I;
+    assign out_resp_data[I]  = out[I].resp_data;
+    assign out_resp_error[I] = out[I].resp_error;
+    assign out_resp_valid[I] = out[I].resp_valid;
+    assign out[I].resp_ready = fifo_port_valid && port_matches[I];
+end
+
+assign do_return = |(port_matches & out_resp_valid);
+
+// Select response from the output port that matches the address at the head of the FIFO
+always_comb begin
+    resp_data_mux  = '0;
+    resp_error_mux = 1'b0;
+    
+    for (int i = 0; i < NUM_CONFIGS; i++) begin
+        resp_data_mux  |= port_matches[i] ? out_resp_data[i]  : '0;
+        resp_error_mux |= port_matches[i] ? out_resp_error[i] : 1'b0;
+    end
+end
+
+// Forward response to input when we have an outstanding read and a matching response
+assign in.resp_data  = resp_data_mux;
+assign in.resp_error = resp_error_mux;
+assign in.resp_valid = fifo_port_valid && do_return;
+
+endmodule

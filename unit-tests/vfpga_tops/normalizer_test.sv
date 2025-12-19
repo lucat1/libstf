@@ -23,10 +23,10 @@ assign clk   = aclk;
 assign rst_n = aresetn;
 
 // -- Interfaces -----------------------------------------------------------------------------------
-AXI4S #(.AXI4S_DATA_BITS(512)) axis_host_recv_0(.aclk(clk));
+AXI4S #(.AXI4S_DATA_BITS(512)) axis_host_recv_0(.aclk(clk), .aresetn(rst_n));
 ndata_i #(data8_t, NUM_ELEMENTS) normalizer_in();
 ndata_i #(data8_t, NUM_ELEMENTS) normalizer_out();
-AXI4S #(.AXI4S_DATA_BITS(512)) axis_host_send_0(.aclk(clk));
+AXI4S #(.AXI4S_DATA_BITS(512)) axis_host_send_0(.aclk(clk), .aresetn(rst_n));
 
 // -- Input wiring ---------------------------------------------------------------------------------
 

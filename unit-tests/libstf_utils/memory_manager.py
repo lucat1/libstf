@@ -1,5 +1,5 @@
 from coyote_test import constants, io_writer
-from libstf_utils.fpga_configuration import MemConfig
+from libstf_utils.fpga_configuration import GlobalConfig, MemConfig
 from typing import Dict, Tuple, List
 from collections.abc import Callable
 from libstf_utils.common import (
@@ -39,7 +39,7 @@ class FPGAOutputMemoryManager:
     def __init__(
         self,
         io_writer_inst: io_writer.SimulationIOWriter,
-        config_offset: int,
+        global_config: GlobalConfig,
         allocation_size = MEMORY_BYTES_PER_FPGA_TRANSFER,
         transfer_size = MEMORY_BYTES_PER_FPGA_TRANSFER,
         all_done_callback : Callable[[None], None] = None
@@ -76,7 +76,7 @@ class FPGAOutputMemoryManager:
         self.all_done_callback = all_done_callback
         self.allocation_size = allocation_size
         self.io_writer = io_writer_inst
-        self.config_offset = config_offset
+        self.global_config = global_config
         self.logger = logging.getLogger("MemoryManager")
 
         # RLocks allow multi-entry of the same thread
@@ -101,7 +101,7 @@ class FPGAOutputMemoryManager:
         """
         Writes the required register values to the FPGA for the given data
         """
-        mem_config = MemConfig(self.config_offset, stream_id, vaddr, size_bytes)
+        mem_config = MemConfig(self.global_config, stream_id, vaddr, size_bytes)
         for config in mem_config.to_register_configuration():
             self.io_writer.ctrl_write(config)
 

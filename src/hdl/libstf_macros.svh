@@ -12,6 +12,20 @@ ResetResync inst_reset_resync ( \
 
 `define ASSERT_ELAB(COND) if (!(COND)) $error("Assertion failed.");
 
+`define STF_STRINGIFY(x) $sformatf("%0s", `"x`")
+
+`define STF_ASSERT_NOT_UNDEFINED(sig) \
+assert property (@(posedge clk) disable iff (!rst_n) \
+    !$isunknown(sig)) \
+else $fatal(1, "Signal %s needs to not be undefined!", `STF_STRINGIFY(sig));
+
+`define STF_ASSERT_STABLE(sig, sig_valid, sig_ready) \
+assert property (@(posedge clk) disable iff (!rst_n) \
+    sig_valid && !sig_ready |=> $stable(sig)) \
+else $fatal(1, "Signal %s needs to be stable while valid && !ready!", `STF_STRINGIFY(sig));
+
+`define STF_ASSERT_SIGNAL_STABLE(sig) `STF_ASSERT_STABLE(sig, valid, ready)
+
 `define DATA_ASSIGN(s, m)         \
 	assign m.data      = s.data;  \
 	assign m.keep      = s.keep;  \

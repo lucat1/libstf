@@ -7,7 +7,7 @@ ConfigWriteRegister #(                                    \
     .data_t(DATA_TYPE)                                    \
 ) inst_config_write_reg_`__LINE__ (                       \
     .clk(clk),                                            \
-    .conf(conf),                                          \
+    .write_config(write_config),                                          \
     .data(SIGNAL)                                         \
 );
 
@@ -18,7 +18,7 @@ ConfigWriteReadyRegister #(                                     \
 ) inst_config_write_ready_reg_`__LINE__ (                       \
     .clk(clk),                                                  \
     .rst_n(rst_n),                                              \
-    .conf(conf),                                                \
+    .write_config(write_config),                                                \
     .data(SIGNAL)                                               \
 );
 
@@ -30,7 +30,7 @@ ConfigWriteFIFO #(                                                \
 ) inst_config_write_fifo_`__LINE__ (                              \
     .clk(clk),                                                    \
     .rst_n(rst_n),                                                \
-    .conf(conf),                                                  \
+    .write_config(write_config),                                                  \
     .data(SIGNAL)                                                 \
 );
 

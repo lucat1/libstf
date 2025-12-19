@@ -6,13 +6,13 @@ module ConfigWriteRegister #(
 ) (
     input logic clk,
 
-    config_i.s    conf,
-    output data_t data
+    write_config_i.s write_config,
+    output data_t    data
 );
 
 always_ff @(posedge clk) begin
-    if (conf.valid && conf.addr == ADDR) begin
-        data <= data_t'(conf.data);
+    if (write_config.valid && write_config.addr == ADDR) begin
+        data <= data_t'(write_config.data);
     end
 end
 
