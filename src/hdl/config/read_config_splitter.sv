@@ -24,6 +24,8 @@ module ReadConfigSplitter #(
 
 localparam FIFO_WIDTH = $clog2(NUM_CONFIGS);
 
+typedef logic[AXIL_DATA_BITS - 1:0] axil_data_t;
+
 assert property (@(posedge clk) disable iff (!reset_synced) !in.read_valid || in.read_addr < ADDR_SPACE_BOUNDS[NUM_CONFIGS])
 else $fatal(1, "Read address %0d is out-of-bounds!", in.read_addr);
 
@@ -36,7 +38,7 @@ logic                   read_port_valid, read_port_ready, fifo_port_valid;
 logic[NUM_CONFIGS - 1:0] out_read_ready;
 logic out_ready;
 
-logic[AXIL_DATA_BITS - 1:0][NUM_CONFIGS - 1:0] out_resp_data;
+axil_data_t[NUM_CONFIGS - 1:0] out_resp_data;
 logic[NUM_CONFIGS - 1:0] out_resp_error, out_resp_valid;
 
 logic[AXIL_DATA_BITS - 1:0] resp_data_mux;
@@ -58,7 +60,7 @@ end
 for (genvar I = 0; I < NUM_CONFIGS; I++) begin
     assign addr_matches[I] = !smaller_than_bound[I] && smaller_than_bound[I + 1];
 
-    assign out[I].read_addr  = in.read_addr;
+    assign out[I].read_addr  = in.read_addr - ADDR_SPACE_BOUNDS[I];
     assign out[I].read_valid = addr_matches[I] ? in.read_valid && read_port_ready : 1'b0;
 
     assign out_read_ready[I] = out[I].read_ready;

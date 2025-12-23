@@ -161,7 +161,7 @@ end
 
 ConfigReadRegisterFile #(
     .NUM_REGS(NUM_GLOBAL_REGS)
-) inst_read_config_arbiter (
+) inst_read_register_file (
     .clk(clk),
     .rst_n(reset_synced),
 
