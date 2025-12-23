@@ -95,14 +95,16 @@ for(genvar I = 0; I < N_STRM_AXI; I++) begin
         .output_data(data_out[I])
     );
 `else
+    // Tie of the interfaces we don't need
+    always_comb sq_wr_strm [I].tie_off_m();
+    always_comb notify_strm[I].tie_off_m();
+    always_comb cq_wr_strm [I].tie_off_s();
+
+    always_comb mem_config[I].tie_off_s();
+
     // The output writer can be disabled for certain test cases.
     // In this case, we simply pipe through all the data
     `AXIS_ASSIGN(data_in[I], data_out[I]);
-
-    // Tie of the interfaces we don't need
-    always_comb sq_wr_strm[I].tie_off_m();
-    always_comb notify_strm[I].tie_off_m();
-    always_comb cq_wr_strm[I].tie_off_s();
 `endif
 end
 

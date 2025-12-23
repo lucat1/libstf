@@ -118,12 +118,22 @@ interface mem_config_i(
 );
     `READY_VALID_SIGNALS(buffer_t, buffer)
 
+    task tie_off_m();
+        buffer_valid = 1'b0;
+    endtask
+
+    task tie_off_s();
+        buffer_ready = 1'b1;
+    endtask
+
     modport m (
+        import tie_off_m,
         output buffer_data, buffer_valid,
         input buffer_ready
     );
 
     modport s (
+        import tie_off_s,
         output buffer_ready,
         input buffer_data, buffer_valid
     );
