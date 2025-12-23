@@ -57,7 +57,7 @@ always_comb begin
         COUNTING: begin
             n_cycles_reg = cycles_reg + 1;
 
-            if (is_handshake) begin
+            if (!is_handshake) begin
                 n_idle_reg = idle_reg + 1;
             end
             
