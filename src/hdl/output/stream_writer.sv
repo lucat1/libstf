@@ -65,6 +65,7 @@ localparam AXI_DATA_BYTES = (AXI_DATA_BITS / 8);
 // interrupt/notify value
 `ASSERT_ELAB(N_STRM_AXI <= 8)
 
+`ifndef SYNTHESIS
 // Input stream
 assert property (@(posedge clk) disable iff (!reset_synced) 
     !input_data.tvalid || input_data.tlast || &input_data.tkeep)
@@ -77,6 +78,7 @@ else $fatal(1, "Last keep signal (%h) must be contiguous starting from the least
 assert property (@(posedge clk) disable iff (!reset_synced) 
     !buffer.valid || (buffer.data.size > 0 && buffer.data.size % TRANSFER_LENGTH_BYTES == 0))
 else $fatal(1, "Allocation size (%0d) must be > 0 and a multiple of TRANSFER_LENGTH_BYTES!", buffer.data.size);
+`endif
 
 // -- Configuration --------------------------------------------------------------------------------
 ready_valid_i #(buffer_t) buffer();

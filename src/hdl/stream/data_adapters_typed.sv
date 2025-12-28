@@ -39,8 +39,10 @@ logic  last,  n_last;
 logic  valid, n_valid;
 
 // -- Assertions -----------------------------------------------------------------------------------
+`ifndef SYNTHESIS
 assert property (@(posedge clk) disable iff (!rst_n) !out_type.valid || GET_TYPE_WIDTH(out_type.data) == 32 || GET_TYPE_WIDTH(out_type.data) == 64)
 else $fatal(1, "Type width %0d is not supported!", GET_TYPE_WIDTH(out_type.data));
+`endif
 
 // -- Logic ----------------------------------------------------------------------------------------
 assign is_32bit = GET_TYPE_WIDTH(out_type.data) == 32;

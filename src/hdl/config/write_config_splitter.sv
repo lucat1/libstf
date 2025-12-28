@@ -24,10 +24,12 @@ logic[NUM_CONFIGS - 1:0] addr_matches, out_valid;
 
 write_config_i internal[NUM_CONFIGS](.clk(clk), .rst_n(reset_synced));
 
+`ifndef SYNTHESIS
 // Address needs to be within address space bounds
 assert property (@(posedge clk) disable iff (!reset_synced) !in.valid || 
     (in.addr >= ADDR_SPACE_BOUNDS[0] && in.addr < ADDR_SPACE_BOUNDS[NUM_CONFIGS]))
 else $fatal(1, "Write address %0d is out-of-bounds!", in.addr);
+`endif
 
 assign smaller_than_bound[0] = 1'b0;
 

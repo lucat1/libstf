@@ -107,8 +107,10 @@ always_ff @(posedge clk) begin
 end
 
 // -- Assertions -----------------------------------------------------------------------------------
+`ifndef SYNTHESIS
 assert property (@(posedge clk) disable iff (!rst_n) !typ.valid || GET_TYPE_WIDTH(typ.data) == 32 || GET_TYPE_WIDTH(typ.data) == 64)
 else $fatal(1, "Module TypedDictionary only supports types that are either 32 or 64 bits, instead got %d bits", GET_TYPE_WIDTH(typ.data));
+`endif
 
 // -- Logic ----------------------------------------------------------------------------------------
 always_comb begin

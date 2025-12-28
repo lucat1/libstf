@@ -31,6 +31,7 @@ module OutputWriter (
 
 `RESET_RESYNC // Reset pipelining
 
+`ifndef SYNTHESIS
 for(genvar I = 0; I < N_STRM_AXI; I++) begin
     assert property (@(posedge clk) disable iff (!reset_synced) 
         !data_in[I].tvalid || data_in[I].tlast || &data_in[I].tkeep)
@@ -39,6 +40,7 @@ for(genvar I = 0; I < N_STRM_AXI; I++) begin
         !data_in[I].tvalid || !data_in[I].tlast || $onehot0(data_in[I].tkeep + 1'b1))
     else $fatal(1, "Last keep signal (%h) must be contiguous starting from the least significant bit!", data_in[I].tkeep);
 end
+`endif
 
 // -- De-mux and arbiter the queue and notify signals ----------------------------------------------
 metaIntf #(.STYPE(req_t))     sq_wr_strm  [N_STRM_AXI](.aclk(clk), .aresetn(reset_synced));

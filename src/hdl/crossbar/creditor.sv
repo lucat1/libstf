@@ -16,8 +16,10 @@ module Creditor #(
     input logic credit_return
 );
 
+`ifndef SYNTHESIS
 assert property (@(posedge clk) disable iff (!rst_n) !$isunknown(credit_return))
 else $fatal(1, "Credit return signal cannot be undefined!");
+`endif
 
 logic[$clog2(MAX_IN_TRANSIT):0] credit_count, n_credit_count;
 logic has_credit;

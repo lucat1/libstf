@@ -26,7 +26,9 @@ interface write_config_i (
         input  addr, data, valid
     );
 
+`ifndef SYNTHESIS
     `STF_ASSERT_NOT_UNDEFINED(valid);
+`endif
 endinterface
 
 interface read_config_i (
@@ -66,6 +68,7 @@ interface read_config_i (
         output read_ready, resp_data, resp_error, resp_valid
     );
 
+`ifndef SYNTHESIS
     `STF_ASSERT_STABLE(read_addr, read_valid, read_ready);
     `STF_ASSERT_NOT_UNDEFINED(read_valid);
     `STF_ASSERT_NOT_UNDEFINED(read_ready);
@@ -74,6 +77,7 @@ interface read_config_i (
     `STF_ASSERT_STABLE(resp_error, resp_valid, resp_ready);
     `STF_ASSERT_NOT_UNDEFINED(resp_valid);
     `STF_ASSERT_NOT_UNDEFINED(resp_ready);
+`endif
 endinterface
 
 /**
@@ -100,6 +104,7 @@ interface stream_config_i #(
         input select_data, select_valid, data_type_data, data_type_valid
     );
 
+`ifndef SYNTHESIS
     `STF_ASSERT_STABLE(select_data, select_valid, select_ready);
     `STF_ASSERT_NOT_UNDEFINED(select_valid);
     `STF_ASSERT_NOT_UNDEFINED(select_ready);
@@ -107,6 +112,7 @@ interface stream_config_i #(
     `STF_ASSERT_STABLE(data_type_data, data_type_valid, data_type_ready);
     `STF_ASSERT_NOT_UNDEFINED(data_type_valid);
     `STF_ASSERT_NOT_UNDEFINED(data_type_ready);
+`endif
 endinterface
 
 /**
@@ -138,7 +144,9 @@ interface mem_config_i(
         input buffer_data, buffer_valid
     );
 
+`ifndef SYNTHESIS
     `STF_ASSERT_STABLE(buffer_data, buffer_valid, buffer_ready);
     `STF_ASSERT_NOT_UNDEFINED(buffer_valid);
     `STF_ASSERT_NOT_UNDEFINED(buffer_ready);
+`endif
 endinterface
