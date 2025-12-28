@@ -24,7 +24,6 @@ state_t state;
 assign conf.read_ready = 1'b1;
 
 assign conf.resp_data  = value;
-assign conf.resp_error = conf.read_addr == ADDR;
 
 always_ff @(posedge clk) begin
     if (!rst_n) begin
@@ -34,6 +33,7 @@ always_ff @(posedge clk) begin
         if (state == WAIT) begin
             if (conf.read_valid) begin
                 state           <= RESPOND;
+                conf.resp_error <= conf.read_addr != ADDR;
                 conf.resp_valid <= 1'b1;
             end
         end else begin

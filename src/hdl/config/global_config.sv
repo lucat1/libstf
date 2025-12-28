@@ -61,7 +61,7 @@ localparam integer AXI_ADDR_BITS = ADDR_LSB + ADDR_MSB;
 
 // Response status codes
 localparam logic[1:0] RESP_OKAY   = 2'b00;
-localparam logic[1:0] RESP_DECERR = 2'b11;
+localparam logic[1:0] RESP_SLVERR = 2'b10;
 
 // =================================================================================================
 // Write
@@ -108,7 +108,7 @@ assign axi_ctrl.awready = axi_ctrl.wvalid;
 assign axi_ctrl.wready  = axi_ctrl.awvalid;
 
 // Write acknowledge
-assign axi_ctrl.bresp = axi_ctrl.awaddr < NUM_TOTAL_REGS * AXIL_DATA_BITS / 8 ? RESP_OKAY : RESP_DECERR; 
+assign axi_ctrl.bresp = axi_ctrl.awaddr < NUM_TOTAL_REGS * AXIL_DATA_BITS / 8 ? RESP_OKAY : RESP_SLVERR; 
 always_ff @(posedge clk) begin
     if (reset_synced == 1'b0) begin
         axi_ctrl.bvalid <= 1'b0;
@@ -188,7 +188,9 @@ assign axi_ctrl.arready = pre_read_splitter_config.read_ready;
 
 // Read response: rvalid and rresp
 assign axi_ctrl.rdata  = pre_read_splitter_config.resp_data;
-assign axi_ctrl.rresp  = pre_read_splitter_config.resp_error ? RESP_DECERR : RESP_OKAY;
+assign axi_ctrl.rresp  = RESP_OKAY; // We cannot correctly handle errors here because burst reads 
+                                    // that occur in read hardware may read addresses that do not 
+                                    // correspond to an actual register.
 assign axi_ctrl.rvalid = pre_read_splitter_config.resp_valid;
 
 assign pre_read_splitter_config.resp_ready = axi_ctrl.rready;
