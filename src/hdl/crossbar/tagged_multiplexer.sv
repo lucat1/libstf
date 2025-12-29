@@ -1,5 +1,7 @@
 `timescale 1ns / 1ps
 
+`include "libstf_macros.svh"
+
 /**
  * At the end of the stream, it waits to see all last signals before any elements of a new stream 
  * are accepted.

@@ -1,5 +1,7 @@
 `timescale 1ns / 1ps
 
+`include "libstf_macros.svh"
+
 /**
  * All read/write requests from 'in' are broadcast to all 'out' ports. Responses come back from
  * the downstream read registers (only one should respond per read based on address decoding). The 

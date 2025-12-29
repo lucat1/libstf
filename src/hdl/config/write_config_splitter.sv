@@ -1,5 +1,7 @@
 `timescale 1ns / 1ps
 
+`include "libstf_macros.svh"
+
 /**
  * The WriteConfigSplitter splits a write config interface into multiple config interfaces based on 
  * address space bounds. I also substracts the corresponding address space bound from the address it 
