@@ -164,28 +164,30 @@ typedef enum logic[2:0] {
     TRANSFER = 2,
     WAIT_COMPLETION = 3,
     WAIT_NOTIFY = 4,
-    ALL_DONE = 5
+    ALL_DONE = 5,
+    FLUSH_BUFFERS = 6
 } output_state_t;
-output_state_t output_state;
+output_state_t output_state, n_output_state;
 
 // The vaddr we currently write to
-vaddress_t vaddr;
+vaddress_t vaddr, n_vaddr;
 // Note: The following two types are chosen to be vaddress_t on purpose
 // to prevent potential overflow problems below.
 // The number of bytes allocated at vaddr
-vaddress_t allocation_size;
+vaddress_t allocation_size, n_allocation_size;
 // How many bytes we have already written to vaddr
-vaddress_t bytes_written_to_allocation;
+vaddress_t bytes_written_to_allocation, n_bytes_written_to_allocation;
 // Possible performance optimization: Become ready earlier such that
 // WAITING for the address takes at most 1 cycle.
 // However: Pay attention that you don't immediately read two addresses.
-assign buffer.ready = output_state == WAIT_FOR_BUFFER;
+assign buffer.ready = output_state == WAIT_FOR_BUFFER || output_state == FLUSH_BUFFERS;
 
 // Tracking of the amount of data we have written in the current transfer
 localparam BEAT_BITS = $clog2(AXI_DATA_BYTES);
 localparam TRANSFER_BEAT_COUNTER_WIDTH = TRANSFER_ADDRESS_LEN_BITS - BEAT_BITS;
-logic[TRANSFER_BEAT_COUNTER_WIDTH - 1 : 0] beats_written_to_transfer, beats_written_to_transfer_succ;
-vaddress_t num_requests, num_completed_transfers;
+logic[TRANSFER_BEAT_COUNTER_WIDTH - 1 : 0] beats_written_to_transfer, n_beats_written_to_transfer, beats_written_to_transfer_succ;
+vaddress_t num_requests, n_num_requests;
+vaddress_t num_completed_transfers, n_num_completed_transfers;
 logic has_partial_beat;
 logic current_transfer_completed;
 
@@ -239,7 +241,7 @@ end
 logic all_transfers_completed;
 assign all_transfers_completed = num_completed_transfers == num_requests;
 
-logic last_transfer;
+logic last_transfer, n_last_transfer;
 always_comb begin
     notify.data.pid   = 6'd0;
     // The output value has 32 bits and consists of:
@@ -258,100 +260,128 @@ always_ff @(posedge clk) begin
     if (reset_synced == 1'b0) begin
         output_state <= WAIT_FOR_BUFFER;
     end else begin
-        case(output_state)
-            WAIT_FOR_BUFFER: begin
-                if (buffer.valid) begin
-                    // Reset the current state
-                    bytes_written_to_allocation <= '0;
-                    num_requests                <= '0;
-                    num_completed_transfers     <= '0;
-                    last_transfer               <= 1'b0;
+        bytes_written_to_allocation <= n_bytes_written_to_allocation;
+        beats_written_to_transfer   <= n_beats_written_to_transfer;
+        num_requests                <= n_num_requests;
+        num_completed_transfers     <= n_num_completed_transfers;
+        last_transfer               <= n_last_transfer;
 
-                    // Get the memory address & size
-                    vaddr           <= buffer.data.vaddr;
-                    allocation_size <= buffer.data.size;
-                    output_state    <= REQUEST;
+        vaddr           <= n_vaddr;
+        allocation_size <= n_allocation_size;
 
-                    `ifndef SYNTHESIS
-                    $display(
-                        "FPGAOutputWriter [%0d]: Writing at most %0d bytes to vaddr %0d",
-                        AXI_STRM_ID,
-                        buffer.data.size,
-                        buffer.data.vaddr
-                    );
-                    `endif
-                end end
-            REQUEST: begin
-                // Requests the next transfer over next_len
-                // Possible optimization: Transfer first data beat in REQUEST state already
-                if (next_len_valid && sq_wr.ready) begin
-                    // There can be a situation where we need to send 0 bytes.
-                    // E.g. if the input did not produce any output.
-                    // In this case we don't need to send any request and can only trigger the interrupt
-                    if (next_len > 0) begin
-                        // This is a valid request with data
-                        vaddr                       <= vaddr + next_len;
-                        output_state                <= TRANSFER;
-                        num_requests                <= num_requests + 1;
-                        bytes_written_to_allocation <= bytes_written_to_allocation + next_len;
-                        beats_written_to_transfer   <= 0;
+        output_state <= n_output_state;
+    end
+end
+
+always_comb begin
+    n_bytes_written_to_allocation = bytes_written_to_allocation;
+    n_beats_written_to_transfer   = beats_written_to_transfer;
+    n_num_requests                = num_requests;
+    n_num_completed_transfers     = num_completed_transfers;
+    n_last_transfer               = last_transfer;
+
+    n_vaddr           = vaddr;
+    n_allocation_size = allocation_size;
+
+    n_output_state = output_state;
+
+    if (is_completion) begin
+        n_num_completed_transfers = num_completed_transfers + 1;
+    end
+
+    case(output_state)
+        WAIT_FOR_BUFFER: begin
+            if (buffer.valid) begin
+                // Reset the current state
+                n_bytes_written_to_allocation = '0;
+                n_num_requests                = '0;
+                n_num_completed_transfers     = '0;
+                n_last_transfer               = 1'b0;
+
+                // Get the memory address & size
+                n_vaddr           = buffer.data.vaddr;
+                n_allocation_size = buffer.data.size;
+
+                n_output_state    = REQUEST;
+            end end
+        REQUEST: begin
+            // Requests the next transfer over next_len
+            // Possible optimization: Transfer first data beat in REQUEST state already
+            if (next_len_valid && sq_wr.ready) begin
+                // There can be a situation where we need to send 0 bytes.
+                // E.g. if the input did not produce any output.
+                // In this case we don't need to send any request and can only trigger the interrupt
+                if (next_len > 0) begin
+                    // This is a valid request with data
+                    n_bytes_written_to_allocation = bytes_written_to_allocation + next_len;
+                    n_beats_written_to_transfer   = '0;
+                    n_num_requests                = num_requests + 1;
+
+                    n_vaddr = vaddr + next_len;
+                    
+                    n_output_state = TRANSFER;
+                end else begin
+                    // We cannot take the axis_data_fifo.tlast signal here because the FIFO output 
+                    // will never become ready without a request to Coyote. However, the next_len 
+                    // can only be zero if this was the last, empty transfer.
+                    n_last_transfer = 1'b1;
+
+                    // No data, no request, or transfer. Only interrupt.
+                    n_output_state = WAIT_NOTIFY;
+                end                    
+            end end 
+        TRANSFER: begin
+            if (axis_data_fifo.tvalid && internal_data.tready) begin
+                // If this was the last data beat of the transfer
+                if (current_transfer_completed) begin
+                    if (axis_data_fifo.tlast | allocation_size < bytes_written_to_allocation + TRANSFER_LENGTH_BYTES) begin
+                        // If
+                        //  1. We have reached the end of the data, OR
+                        //  2. The size of the current memory allocation does not fit an additional transfer
+                        // We need to
+                        //  1. Wait for completion
+                        //  2. Trigger a interrupt (which will give us new memory, if more is needed)
+                        n_last_transfer = axis_data_fifo.tlast;
+                        n_output_state  = WAIT_COMPLETION;
                     end else begin
-                        // No data, no request, or transfer. Only interrupt.
-                        output_state <= WAIT_NOTIFY;
-                        // We cannot take the axis_data_fifo.tlast signal here because
-                        // the fifo output will never become ready without a request
-                        // to coyote. However, the next_len can only be zero if
-                        // this was the last, empty transfer.
-                        last_transfer <= 1'b1;
-                    end                    
-                end end 
-            TRANSFER: begin
-                if (axis_data_fifo.tvalid && internal_data.tready) begin
-                    // If this was the last data beat of the transfer
-                    if (current_transfer_completed) begin
-                        if (axis_data_fifo.tlast | allocation_size < bytes_written_to_allocation + TRANSFER_LENGTH_BYTES) begin
-                            // If
-                            //  1. We have reached the end of the data, OR
-                            //  2. The size of the current memory allocation does not fit an additional transfer
-                            // We need to
-                            //  1. Wait for completion
-                            //  2. Trigger a interrupt (which will give us new memory, if more is needed)
-                            output_state  <= WAIT_COMPLETION;
-                            last_transfer <= axis_data_fifo.tlast;
-                        end else begin
-                            // Perform next transfer!
-                            output_state <= REQUEST;
-                        end
-                    end else begin
-                        beats_written_to_transfer <= beats_written_to_transfer_succ;
+                        // Perform next transfer!
+                        n_output_state = REQUEST;
                     end
-                end end
-            WAIT_COMPLETION: begin
-                if (all_transfers_completed) begin
-                    if (notify.ready) begin
-                        output_state <= WAIT_FOR_BUFFER;
-                    end else begin
-                        output_state <= WAIT_NOTIFY;
-                    end
-                end end
-            WAIT_NOTIFY: begin
+                end else begin
+                    n_beats_written_to_transfer = beats_written_to_transfer_succ;
+                end
+            end end
+        WAIT_COMPLETION: begin
+            if (all_transfers_completed) begin
                 if (notify.ready) begin
-                    // If no bytes were written, we can just reuse the current buffer for the next 
-                    // stream so we null the last_transfer signal and jump to the REQUEST state.
-                    // Otherwise, we fetch the next buffer in in the WAIT_ADDR state.
-                    if (bytes_written_to_allocation == 0) begin
-                        last_transfer <= 1'b0;
-                        output_state  <= REQUEST;
-                    end else begin
-                        output_state <= WAIT_FOR_BUFFER;
-                    end
-                end end
-            default:;
-        endcase
+                    n_output_state = WAIT_FOR_BUFFER;
+                end else begin
+                    n_output_state = WAIT_NOTIFY;
+                end
+            end end
+        WAIT_NOTIFY: begin
+            if (notify.ready) begin
+                // If no bytes were written, we can just reuse the current buffer for the next 
+                // stream so we null the last_transfer signal and jump to the REQUEST state.
+                // Otherwise, we fetch the next buffer in in the WAIT_ADDR state.
+                if (bytes_written_to_allocation == 0) begin
+                    n_last_transfer = 1'b0;
+                    n_output_state  = REQUEST;
+                end else begin
+                    n_output_state = WAIT_FOR_BUFFER;
+                end
+            end end
+        FLUSH_BUFFERS: begin
+            if (!buffer.valid) begin
+                n_output_state = WAIT_FOR_BUFFER;
+            end end
+        default:;
+    endcase
 
-        if (is_completion) begin
-            num_completed_transfers <= num_completed_transfers + 1;
-        end
+    // We need to be able to separately flush the buffers because multiple buffers might be enqueued
+    // by the software side that become stale after the software terminates.
+    if (mem_config.flush_buffers) begin
+        n_output_state = FLUSH_BUFFERS;
     end
 end
 

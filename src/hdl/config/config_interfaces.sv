@@ -124,8 +124,11 @@ interface mem_config_i(
 );
     `READY_VALID_SIGNALS(buffer_t, buffer)
 
+    logic flush_buffers;
+
     task tie_off_m();
-        buffer_valid = 1'b0;
+        buffer_valid  = 1'b0;
+        flush_buffers = 1'b0;
     endtask
 
     task tie_off_s();
@@ -134,19 +137,21 @@ interface mem_config_i(
 
     modport m (
         import tie_off_m,
-        output buffer_data, buffer_valid,
+        output buffer_data, buffer_valid, flush_buffers,
         input buffer_ready
     );
 
     modport s (
         import tie_off_s,
         output buffer_ready,
-        input buffer_data, buffer_valid
+        input buffer_data, buffer_valid, flush_buffers
     );
 
 `ifndef SYNTHESIS
     `STF_ASSERT_STABLE(buffer_data, buffer_valid, buffer_ready);
     `STF_ASSERT_NOT_UNDEFINED(buffer_valid);
     `STF_ASSERT_NOT_UNDEFINED(buffer_ready);
+
+    `STF_ASSERT_NOT_UNDEFINED(flush_buffers);
 `endif
 endinterface
