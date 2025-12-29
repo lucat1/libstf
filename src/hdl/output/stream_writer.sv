@@ -193,7 +193,6 @@ logic current_transfer_completed;
 
 assign has_partial_beat               = |(next_len[BEAT_BITS - 1:0]);
 assign current_transfer_completed     = beats_written_to_transfer_succ == (next_len >> BEAT_BITS) + has_partial_beat;
-assign bytes_to_write_to_transfer     = $countones(axis_data_fifo.tkeep);
 assign beats_written_to_transfer_succ = beats_written_to_transfer + 1;
 // We get the next length when either
 // - The last data beat of the current transfer is done (so the length is available in the next cycle)
