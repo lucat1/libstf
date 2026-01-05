@@ -76,8 +76,8 @@ else $fatal(1, "Last keep signal (%h) must be contiguous starting from the least
 
 // Allocations
 assert property (@(posedge clk) disable iff (!reset_synced) 
-    !buffer.valid || (buffer.data.size > 0 && buffer.data.size % TRANSFER_LENGTH_BYTES == 0))
-else $fatal(1, "Allocation size (%0d) must be > 0 and a multiple of TRANSFER_LENGTH_BYTES!", buffer.data.size);
+    !buffer.valid || (buffer.data.size > 0))
+else $fatal(1, "Buffer size (%0d) must be > 0!", buffer.data.size);
 `endif
 
 // -- Configuration --------------------------------------------------------------------------------
@@ -171,10 +171,10 @@ output_state_t output_state, n_output_state;
 
 // The vaddr we currently write to
 vaddress_t vaddr, n_vaddr;
-// Note: The following two types are chosen to be vaddress_t on purpose
-// to prevent potential overflow problems below.
+// Note: The following two types are chosen to be vaddress_t on purpose to prevent potential 
+// overflow problems below.
 // The number of bytes allocated at vaddr
-vaddress_t allocation_size, n_allocation_size;
+vaddress_t capacity, n_capacity;
 // How many bytes we have already written to vaddr
 vaddress_t bytes_written_to_allocation, n_bytes_written_to_allocation;
 // Possible performance optimization: Become ready earlier such that
@@ -265,8 +265,8 @@ always_ff @(posedge clk) begin
         num_completed_transfers     <= n_num_completed_transfers;
         last_transfer               <= n_last_transfer;
 
-        vaddr           <= n_vaddr;
-        allocation_size <= n_allocation_size;
+        vaddr    <= n_vaddr;
+        capacity <= n_capacity;
 
         output_state <= n_output_state;
     end
@@ -279,8 +279,8 @@ always_comb begin
     n_num_completed_transfers     = num_completed_transfers;
     n_last_transfer               = last_transfer;
 
-    n_vaddr           = vaddr;
-    n_allocation_size = allocation_size;
+    n_vaddr    = vaddr;
+    n_capacity = capacity;
 
     n_output_state = output_state;
 
@@ -297,9 +297,9 @@ always_comb begin
                 n_num_completed_transfers     = '0;
                 n_last_transfer               = 1'b0;
 
-                // Get the memory address & size
-                n_vaddr           = buffer.data.vaddr;
-                n_allocation_size = buffer.data.size;
+                // Get the memory address & capacity
+                n_vaddr    = buffer.data.vaddr;
+                n_capacity = buffer.data.size << $clog2(TRANSFER_LENGTH_BYTES);
 
                 n_output_state    = REQUEST;
             end end
@@ -333,7 +333,7 @@ always_comb begin
             if (axis_data_fifo.tvalid && internal_data.tready) begin
                 // If this was the last data beat of the transfer
                 if (current_transfer_completed) begin
-                    if (axis_data_fifo.tlast | allocation_size < bytes_written_to_allocation + TRANSFER_LENGTH_BYTES) begin
+                    if (axis_data_fifo.tlast || capacity < bytes_written_to_allocation + TRANSFER_LENGTH_BYTES) begin
                         // If
                         //  1. We have reached the end of the data, OR
                         //  2. The size of the current memory allocation does not fit an additional transfer

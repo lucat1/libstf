@@ -17,7 +17,7 @@ read_config_i  read_configs [1](.*);
 GlobalConfig #(
     .SYSTEM_ID(0),
     .NUM_CONFIGS(1),
-    .ADDR_SPACE_SIZES({2 * N_STRM_AXI + 1})
+    .ADDR_SPACE_SIZES({N_STRM_AXI + 1})
 ) inst_config (
     .clk(clk),
     .rst_n(rst_n),

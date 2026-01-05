@@ -24,6 +24,7 @@ import lynxTypes::*;
 // See output_writer for more info.
 localparam integer MAXIMUM_HOST_ALLOCATION_LEN_BIT    = 28;
 localparam integer MAXIMUM_HOST_ALLOCATION_SIZE_BYTES = 2 ** MAXIMUM_HOST_ALLOCATION_LEN_BIT - 1;
+localparam integer BUFFER_SIZE_BITS                   = 28 - $clog2(TRANSFER_SIZE_BYTES);
 
 typedef logic[7:0]  data8_t;
 typedef logic[15:0] data16_t;
@@ -31,11 +32,11 @@ typedef logic[31:0] data32_t;
 typedef logic[63:0] data64_t;
 
 typedef logic[VADDR_BITS - 1:0] vaddress_t; // Cannot be vaddr_t because of conflict with Coyote sim
-typedef logic[MAXIMUM_HOST_ALLOCATION_LEN_BIT - 1:0] alloc_size_t;
+typedef logic[BUFFER_SIZE_BITS - 1:0] buffer_size_t;
 
 typedef struct packed {
-    vaddress_t   vaddr;
-    alloc_size_t size;
+    vaddress_t    vaddr;
+    buffer_size_t size;
 } buffer_t;
 
 typedef enum logic[2:0] {

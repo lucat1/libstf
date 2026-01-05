@@ -2,7 +2,7 @@ from coyote_test import constants, fpga_register, fpga_test_case
 from typing import List
 from unit_test.fpga_stream import StreamType
 from libstf_utils.common import INTERRUPT_TRANSFER_SIZE_BITS
-
+import math
 
 class GlobalConfig:
     """
@@ -85,7 +85,7 @@ class StreamConfig:
 class MemConfig:
     ID = 0
 
-    def __init__(self, global_config: GlobalConfig, stream_id: int, vaddr: int, size: int):
+    def __init__(self, global_config: GlobalConfig, stream_id: int, vaddr: int, size: int, bytes_per_fpga_transfer: int):
         """
         Creates a new configuration, which tells the FPGA to use the memory region starting from 
         vaddr and over size bytes to send the output of stream with id stream_id. GlobalConfig is 
@@ -95,6 +95,9 @@ class MemConfig:
         self.stream_id = stream_id
         self.vaddr = vaddr
         self.size = size
+        self.bytes_per_fpga_transfer = bytes_per_fpga_transfer
+        self.offset = None
+        self.buffer_size_bits = None
 
     def _to_bytearray(self, size: int, value: int) -> bytearray:
         """
@@ -108,19 +111,23 @@ class MemConfig:
         return bytearray(value.to_bytes(8, constants.BYTE_ORDER))
 
     def to_register_configuration(self) -> List[fpga_register.vFPGARegister]:
-        offset = self.global_config.get_config_bounds(MemConfig.ID)[0]
+        if self.offset is None:
+            self.offset = self.global_config.get_config_bounds(MemConfig.ID)[0]
+        
+        assert self.vaddr < pow(2, constants.VADDR_BITS)
+        assert self.size < pow(2, INTERRUPT_TRANSFER_SIZE_BITS)
 
         # Determine the id of the register
-        vaddr_reg_id = offset + 2 * self.stream_id
-        size_reg_id  = offset + 2 * self.stream_id + 1
+        reg_id = self.offset + self.stream_id
+
+        transfer_bit_shift = int(math.log2(self.bytes_per_fpga_transfer))
+        if self.buffer_size_bits is None:
+            self.buffer_size_bits = INTERRUPT_TRANSFER_SIZE_BITS - transfer_bit_shift
 
         return [
             fpga_register.vFPGARegister(
-                vaddr_reg_id,
-                self._to_bytearray(constants.VADDR_BITS, self.vaddr),
-            ),
-            fpga_register.vFPGARegister(
-                size_reg_id,
-                self._to_bytearray(INTERRUPT_TRANSFER_SIZE_BITS, self.size),
-            ),
+                reg_id,
+                self._to_bytearray(constants.VADDR_BITS + self.buffer_size_bits, 
+                                   self.vaddr << self.buffer_size_bits | self.size >> transfer_bit_shift),
+            )
         ]

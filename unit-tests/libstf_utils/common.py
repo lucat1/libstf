@@ -1,11 +1,6 @@
 from coyote_test import constants
 from unit_test.fpga_stream import StreamType
 
-#
-# FPGA-initiated transfers
-#
-MEMORY_BYTES_PER_FPGA_TRANSFER = 65536
-
 # The interrupt value has 32 bits.
 # We need 3 bits for the stream indicator and 1 bit for the last signal.
 # This leaves 28 bits for the maximum output size per allocation.
@@ -22,7 +17,6 @@ MAX_SUPPORTED_N_STREAMS = pow(2, INTERRUPT_STREAM_ID_BITS)
 # Assertions 
 #
 assert constants.MAX_NUMBER_STREAMS % 2 == 0, "The number of streams needs to be divisible by two for the design to work!"
-assert MEMORY_BYTES_PER_FPGA_TRANSFER % 64 == 0, "The bytes per FPGA initiated transfer need to be a multiple of the AXI data beat size!"
 assert constants.MAX_NUMBER_STREAMS <= MAX_SUPPORTED_N_STREAMS, (
     "Due to limitations in the FPGA-initiated transfers, we can currently support " + 
     f"at most {MAX_SUPPORTED_N_STREAMS} streams. Configuration had " + 

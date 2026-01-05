@@ -3,7 +3,6 @@ from libstf_utils.fpga_configuration import GlobalConfig, MemConfig
 from typing import Dict, Tuple, List
 from collections.abc import Callable
 from libstf_utils.common import (
-    MEMORY_BYTES_PER_FPGA_TRANSFER,
     INTERRUPT_STREAM_ID_BITS,
     INTERRUPT_TRANSFER_SIZE_BITS,
     INTERRUPT_LAST_BITS,
@@ -14,7 +13,7 @@ import struct
 import threading
 
 MAX_NUMBER_STREAMS = constants.MAX_NUMBER_STREAMS
-
+DEFAULT_BYTES_PER_FPGA_TRANSFER = 65536
 
 class InterruptValue:
     def __init__(self, stream_id: int, transfer_size: int, last: bool):
@@ -40,8 +39,8 @@ class FPGAOutputMemoryManager:
         self,
         io_writer_inst: io_writer.SimulationIOWriter,
         global_config: GlobalConfig,
-        allocation_size = MEMORY_BYTES_PER_FPGA_TRANSFER,
-        transfer_size = MEMORY_BYTES_PER_FPGA_TRANSFER,
+        allocation_size = DEFAULT_BYTES_PER_FPGA_TRANSFER,
+        transfer_size = DEFAULT_BYTES_PER_FPGA_TRANSFER,
         all_done_callback : Callable[[None], None] = None
     ):
         """
@@ -73,10 +72,12 @@ class FPGAOutputMemoryManager:
             + f"are supported at once. {allocation_size} bytes where requested."
         )
 
-        self.all_done_callback = all_done_callback
-        self.allocation_size = allocation_size
         self.io_writer = io_writer_inst
         self.global_config = global_config
+        self.allocation_size = allocation_size
+        self.transfer_size = transfer_size
+        
+        self.all_done_callback = all_done_callback
         self.logger = logging.getLogger("MemoryManager")
 
         # RLocks allow multi-entry of the same thread
@@ -101,7 +102,7 @@ class FPGAOutputMemoryManager:
         """
         Writes the required register values to the FPGA for the given data
         """
-        mem_config = MemConfig(self.global_config, stream_id, vaddr, size_bytes)
+        mem_config = MemConfig(self.global_config, stream_id, vaddr, size_bytes, self.transfer_size)
         for config in mem_config.to_register_configuration():
             self.io_writer.ctrl_write(config)
 
