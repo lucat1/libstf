@@ -194,13 +194,6 @@ logic current_transfer_completed;
 assign has_partial_beat               = |(next_len[BEAT_BITS - 1:0]);
 assign current_transfer_completed     = beats_written_to_transfer_succ == (next_len >> BEAT_BITS) + has_partial_beat;
 assign beats_written_to_transfer_succ = beats_written_to_transfer + 1;
-// We get the next length when either
-// - The last data beat of the current transfer is done (so the length is available in the next cycle)
-// - The length is currently not valid. This can be because:
-//    - It was never valid so far (first transfer)
-//    - It did not become immediately valid after the 1 cycle we became ready after the last transfer
-assign next_len_ready =
-    (output_state == TRANSFER && axis_data_fifo.tvalid && internal_data.tready && current_transfer_completed);
 
 // Completions we get
 assign cq_wr.ready = 1;
@@ -273,6 +266,8 @@ always_ff @(posedge clk) begin
 end
 
 always_comb begin
+    next_len_ready = 1'b0;
+
     n_bytes_written_to_allocation = bytes_written_to_allocation;
     n_beats_written_to_transfer   = beats_written_to_transfer;
     n_num_requests                = num_requests;
@@ -306,20 +301,24 @@ always_comb begin
         REQUEST: begin
             // Requests the next transfer over next_len
             // Possible optimization: Transfer first data beat in REQUEST state already
-            if (next_len_valid && sq_wr.ready) begin
+            if (next_len_valid) begin
                 // There can be a situation where we need to send 0 bytes.
                 // E.g. if the input did not produce any output.
                 // In this case we don't need to send any request and can only trigger the interrupt
-                if (next_len > 0) begin
-                    // This is a valid request with data
-                    n_bytes_written_to_allocation = bytes_written_to_allocation + next_len;
-                    n_beats_written_to_transfer   = '0;
-                    n_num_requests                = num_requests + 1;
+                if (next_len != 0) begin
+                    if (sq_wr.ready) begin
+                        // This is a valid request with data
+                        n_bytes_written_to_allocation = bytes_written_to_allocation + next_len;
+                        n_beats_written_to_transfer   = '0;
+                        n_num_requests                = num_requests + 1;
 
-                    n_vaddr = vaddr + next_len;
-                    
-                    n_output_state = TRANSFER;
+                        n_vaddr = vaddr + next_len;
+                        
+                        n_output_state = TRANSFER;
+                    end
                 end else begin
+                    next_len_ready = 1'b1;
+
                     // We cannot take the axis_data_fifo.tlast signal here because the FIFO output 
                     // will never become ready without a request to Coyote. However, the next_len 
                     // can only be zero if this was the last, empty transfer.
@@ -333,6 +332,8 @@ always_comb begin
             if (axis_data_fifo.tvalid && internal_data.tready) begin
                 // If this was the last data beat of the transfer
                 if (current_transfer_completed) begin
+                    next_len_ready = 1'b1;
+
                     if (axis_data_fifo.tlast || capacity < bytes_written_to_allocation + TRANSFER_LENGTH_BYTES) begin
                         // If
                         //  1. We have reached the end of the data, OR
