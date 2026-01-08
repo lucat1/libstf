@@ -13,24 +13,38 @@ module StreamConfig #(
     write_config_i.s write_config,
     read_config_i.s  read_config,
 
-    stream_config_i.m out[NUM_STREAMS] // #(SELECT_WIDTH)
+    stream_config_i.m out[NUM_STREAMS]
 );
 
-localparam SELECT_WIDTH = $clog2(NUM_SELECT);
-localparam NUM_REGISTERS = 2;
+`RESET_RESYNC // Reset pipelining
+
 localparam MAX_OUTSTANDING_STREAMS = 64;
 
-typedef logic[SELECT_WIDTH - 1:0] select_t;
+// -- Read -----------------------------------------------------------------------------------------
+logic[AXIL_DATA_BITS - 1:0] read_registers[2];
 
-ConfigReadRegister #(0, data8_t) inst_id_reg (clk, rst_n, read_config, data8_t'(STREAM_CONFIG_ID));
+assign read_registers[0] = STREAM_CONFIG_ID;
+assign read_registers[1] = NUM_STREAMS;
 
+ConfigReadRegisterFile #(
+    .NUM_REGS(2)
+) inst_read_register_file (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .in(read_config),
+    .values(read_registers)
+);
+
+// -- Write ----------------------------------------------------------------------------------------
 for (genvar I = 0; I < NUM_STREAMS; I++) begin
-    ready_valid_i #(select_t) select();
-    ready_valid_i #(type_t)   data_type();
-    stream_config_i #(SELECT_WIDTH) result();
+    ready_valid_i #(stream_conf_t) conf_reg();
+    ready_valid_i #(select_t)      select();
+    ready_valid_i #(type_t)        data_type();
 
-    `CONFIG_WRITE_FIFO(I * NUM_REGISTERS + 0, MAX_OUTSTANDING_STREAMS, select_t, select)
-    `CONFIG_WRITE_FIFO(I * NUM_REGISTERS + 1, MAX_OUTSTANDING_STREAMS, type_t, data_type)
+    ConfigWriteFIFO #(I, MAX_OUTSTANDING_STREAMS, stream_conf_t) inst_write_fifo (clk, reset_synced, write_config, conf_reg);
+
+    `READY_SPLIT(select_t, type_t, conf_reg, select, data_type)
 
     `CONFIG_INTF_TO_SIGNALS(select,    out[I].select)
     `CONFIG_INTF_TO_SIGNALS(data_type, out[I].data_type)

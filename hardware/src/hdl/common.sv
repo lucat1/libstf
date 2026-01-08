@@ -4,6 +4,8 @@ package libstf;
 
 import lynxTypes::*;
 
+// -- Constants ------------------------------------------------------------------------------------
+
 // This value describes the maximum size in bytes of one memory transfer.
 // Each transfer of this size will get a acknowledgement.
 // The memory allocated for the output by the host should be a multiple of
@@ -26,18 +28,14 @@ localparam integer MAXIMUM_HOST_ALLOCATION_LEN_BIT    = 28;
 localparam integer MAXIMUM_HOST_ALLOCATION_SIZE_BYTES = 2 ** MAXIMUM_HOST_ALLOCATION_LEN_BIT - 1;
 localparam integer BUFFER_SIZE_BITS                   = 28 - $clog2(TRANSFER_SIZE_BYTES);
 
+localparam MEM_CONFIG_ID    = 0;
+localparam STREAM_CONFIG_ID = 1;
+
+// -- Typedef --------------------------------------------------------------------------------------
 typedef logic[7:0]  data8_t;
 typedef logic[15:0] data16_t;
 typedef logic[31:0] data32_t;
 typedef logic[63:0] data64_t;
-
-typedef logic[VADDR_BITS - 1:0] vaddress_t; // Cannot be vaddr_t because of conflict with Coyote sim
-typedef logic[BUFFER_SIZE_BITS - 1:0] buffer_size_t;
-
-typedef struct packed {
-    vaddress_t    vaddr;
-    buffer_size_t size;
-} buffer_t;
 
 typedef enum logic[2:0] {
     BYTE_T,
@@ -47,8 +45,22 @@ typedef enum logic[2:0] {
     DOUBLE_T
 } type_t;
 
-localparam MEM_CONFIG_ID    = 0;
-localparam STREAM_CONFIG_ID = 1;
+// MemConfig
+typedef logic[VADDR_BITS - 1:0]       vaddress_t; // Cannot be vaddr_t because of conflict with Coyote sim
+typedef logic[BUFFER_SIZE_BITS - 1:0] buffer_size_t;
+
+typedef struct packed {
+    vaddress_t    vaddr;
+    buffer_size_t size;
+} buffer_t;
+
+// StreamConfig
+typedef data8_t select_t;
+
+typedef struct packed {
+    type_t   data_type;
+    select_t select;
+} stream_conf_t;
 
 // Constant function to return the bit width of type_t types
 function automatic int GET_TYPE_WIDTH(type_t data_type);

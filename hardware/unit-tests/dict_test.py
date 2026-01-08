@@ -57,8 +57,8 @@ class DictTestMixin():
             )
             type_reg = stream_type_to_libstf_type_t(stream_type)
 
-            # 3 offset for global regs + 1 because we are writing type and not select
-            self.write_register(fpga_register.vFPGARegister(4, bytearray([type_reg])))
+            # 3 offset for global regs
+            self.write_register(fpga_register.vFPGARegister(3, bytearray([type_reg])))
 
         # Set the input data
         for values in self.expression.values:
