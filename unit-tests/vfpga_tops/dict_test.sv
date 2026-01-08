@@ -53,7 +53,7 @@ GlobalConfig #(
     .read_configs(read_configs)
 );
 
-stream_config_i #(2) stream_config[1](.*);
+stream_config_i stream_config[1](.*);
 StreamConfig #(
     .NUM_SELECT(2),
     .NUM_STREAMS(1)

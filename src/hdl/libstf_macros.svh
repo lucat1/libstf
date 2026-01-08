@@ -53,6 +53,15 @@ ReadyValidCombiner inst_ready_combine_`__LINE__ ( \
     .out(OUT)                                     \
 );
 
+`define READY_SPLIT(LEFT_T, RIGHT_T, IN, LEFT, RIGHT)              \
+ReadyValidSplitter #(LEFT_T, RIGHT_T) inst_ready_split_`__LINE__ ( \
+    .clk(clk),                                                     \
+    .rst_n(rst_n),                                                 \
+    .in(IN),                                                       \
+    .left(LEFT),                                                   \
+    .right(RIGHT)                                                  \
+);
+
 `define READY_VALID_SIGNALS(TYPE, NAME) \
 TYPE  ``NAME``_data;                    \
 logic ``NAME``_valid;                   \

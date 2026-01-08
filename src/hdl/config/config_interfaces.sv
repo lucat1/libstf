@@ -83,14 +83,10 @@ endinterface
 /**
  * Interface that bundles all stream configuration information.
  */
-interface stream_config_i #(
-    parameter NUM_SELECT
-) (
+interface stream_config_i (
     input logic clk,
     input logic rst_n
 );
-    typedef logic[$clog2(NUM_SELECT) - 1:0] select_t;
-
     `READY_VALID_SIGNALS(select_t, select)
     `READY_VALID_SIGNALS(type_t,   data_type)
 
