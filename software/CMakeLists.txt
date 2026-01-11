@@ -26,7 +26,12 @@ find_package(Jemalloc REQUIRED)
 
 # Specify include directories
 target_include_directories(libstf
-    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${COYOTE_INCLUDE_DIRS} ${JEMALLOC_INCLUDE_DIRS}
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/libstf>
+)
+target_include_directories(libstf
+    PUBLIC ${COYOTE_INCLUDE_DIRS} ${JEMALLOC_INCLUDE_DIRS}
 )
 
 target_link_libraries(libstf PRIVATE Coyote ${JEMALLOC_LIBRARIES})
