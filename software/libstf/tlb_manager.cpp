@@ -6,7 +6,7 @@ namespace libstf {
 // Public methods
 // ----------------------------------------------------------------------------
 
-TLBManager::TLBManager(coyote::cThread &cthread, MemoryPool &memory_pool)
+TLBManager::TLBManager(std::shared_ptr<coyote::cThread> cthread, std::shared_ptr<MemoryPool> memory_pool)
         : memory_pool(memory_pool)
         , cthread(cthread) {}
 
@@ -15,7 +15,7 @@ TLBManager::~TLBManager() {
 
     // Unmap all tlb entries we have created on the FPGA
     for (const auto& mapping : existing_tlb_mappings) {
-        cthread.userUnmap(mapping);
+        cthread->userUnmap(mapping);
     }
 }
 
@@ -24,11 +24,11 @@ void TLBManager::ensure_tlb_mapping(const void *data_address, size_t size) {
     std::lock_guard guard(tlb_mutex);
 
     auto [page_address, page_size] =
-        memory_pool.get_page_boundaries(data_address);
+        memory_pool->get_page_boundaries(data_address);
     // Check if this mapping already exists
     if (existing_tlb_mappings.find(page_address) == existing_tlb_mappings.end()) {
         // Add new TLB entry for this page!
-        cthread.userMap(page_address, page_size);
+        cthread->userMap(page_address, page_size);
         existing_tlb_mappings.insert(page_address);
     }
 
