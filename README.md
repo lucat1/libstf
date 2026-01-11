@@ -51,9 +51,12 @@ This will install jemalloc in `~/opt/jemalloc`. The you can build the libstf lib
 
 ```bash
 mkdir build && cd build
-cmake ..
+cmake -DCMAKE_PREFIX_PATH=$HOME/opt ..
 make
 ```
+
+Notice the `-DCMAKE_PREFIX_PATH=$HOME/opt`: this is so that CMake will look in the path where
+jemalloc has been installed with the script and link libstf against it.
 
 ## Code Style
 For now, we have a couple of code style rules:
