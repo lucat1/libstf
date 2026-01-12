@@ -19,7 +19,7 @@ namespace libstf {
  */
 class TLBManager {
 public:
-    TLBManager(coyote::cThread &cthread, MemoryPool &memory_pool);
+    TLBManager(std::shared_ptr<coyote::cThread> cthread, std::shared_ptr<MemoryPool> memory_pool);
 
     ~TLBManager();
 
@@ -37,8 +37,8 @@ public:
     void ensure_tlb_mapping(const void *data_address, size_t size);
 
 private:
-    coyote::cThread &cthread;
-    MemoryPool &memory_pool;
+    std::shared_ptr<coyote::cThread> cthread;
+    std::shared_ptr<MemoryPool> memory_pool;
 
     // The address of all the pages for which we already performed a TLB mapping
     std::set<void *> existing_tlb_mappings;

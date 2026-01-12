@@ -31,7 +31,7 @@ std::ostream& operator<<(std::ostream& out, const std::vector<ConfigRegister>& c
 
 class Config {
 public:
-    Config(coyote::cThread &cthread, uint32_t addr_offset);
+    Config(std::shared_ptr<coyote::cThread> cthread, uint32_t addr_offset);
 
     /**
      * Read configuration value from addr starting at addr_offset.
@@ -43,7 +43,7 @@ public:
     static constexpr uint32_t ID = -1;
 
 private:
-    coyote::cThread &cthread;
+    std::shared_ptr<coyote::cThread> cthread;
     uint32_t addr_offset;
 };
 
@@ -53,7 +53,7 @@ public:
      * Note: Takes the cThread as a reference so we don't create a circular dependency with 
      * CelerisContext.
      */
-    GlobalConfig(coyote::cThread &cthread);
+    GlobalConfig(std::shared_ptr<coyote::cThread> cthread);
 
     /**
      * Checks whether a config with a certain config_id is present in the system. Can be used to 
@@ -78,7 +78,7 @@ private:
 
 class MemConfig : public Config {
 public:
-    MemConfig(coyote::cThread &cthread, uint32_t addr_offset);
+    MemConfig(std::shared_ptr<coyote::cThread> cthread, uint32_t addr_offset);
 
     /**
      * Writes the CSR registers to add a new buffer to the FPGA for the given stream.
