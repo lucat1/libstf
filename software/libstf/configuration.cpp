@@ -56,23 +56,23 @@ std::ostream &operator<<(std::ostream &out, const std::vector<ConfigRegister> &c
 // Config
 // ----------------------------------------------------------------------------
 
-Config::Config(coyote::cThread &cthread, uint32_t addr_offset) : 
+Config::Config(std::shared_ptr<coyote::cThread> cthread, uint32_t addr_offset) : 
         cthread(cthread), 
         addr_offset(addr_offset) {}
 
 ConfigRegister Config::read_register(uint32_t addr) {
-    return ConfigRegister(addr_offset + addr, cthread.getCSR(addr_offset + addr));
+    return ConfigRegister(addr_offset + addr, cthread->getCSR(addr_offset + addr));
 }
 
 void Config::write_register(ConfigRegister reg) {
-    cthread.setCSR(reg.value(), addr_offset + reg.addr());
+    cthread->setCSR(reg.value(), addr_offset + reg.addr());
 }
 
 // ----------------------------------------------------------------------------
 // GlobalConfig
 // ----------------------------------------------------------------------------
 
-GlobalConfig::GlobalConfig(coyote::cThread &cthread) : Config(cthread, 0) {
+GlobalConfig::GlobalConfig(std::shared_ptr<coyote::cThread> cthread) : Config(cthread, 0) {
     system_id_   = read_register(0).value();
     num_configs_ = read_register(1).value();
 
@@ -105,7 +105,7 @@ bool GlobalConfig::has_config(uint32_t config_id) {
 // MemConfig
 // ----------------------------------------------------------------------------
 
-MemConfig::MemConfig(coyote::cThread &cthread, uint32_t addr_offset) : 
+MemConfig::MemConfig(std::shared_ptr<coyote::cThread> cthread, uint32_t addr_offset) : 
     Config(cthread, addr_offset), 
     num_streams_(read_register(1).value()) {}
 
