@@ -197,25 +197,34 @@ unsigned HugePageMemoryPool::get_tcache_id_for_calling_thread() {
     return tcache_id;
 }
 
+/**
+ * Checks if the given buffer at `buf` is within the provided `bounds`.
+ * Both the buffer and the bounds are encoded as a pair (base_addr, size).
+ */
+inline bool is_buffer_within_bounds(std::pair<void *, size_t> bounds, std::pair<void *, size_t> buf) {
+    auto buf_start = static_cast<std::byte *>(std::get<0>(buf));
+    auto buf_end = buf_start + std::get<1>(buf);
+    auto bounds_start = static_cast<std::byte *>(std::get<0>(bounds));
+    auto bounds_end = bounds_start + std::get<1>(bounds);
+
+    return buf_start >= bounds_start && buf_end <= bounds_end;
+}
+
 bool HugePageMemoryPool::is_in_bounds(void *ptr, size_t size) {
-    auto address     = static_cast<std::byte *>(ptr);
-    auto initial     = static_cast<std::byte *>(initial_address_);
-    auto max_address = initial + total_capacity_;
-    return address >= initial && address + size - 1 <= max_address;
+    return is_buffer_within_bounds({initial_address_, total_capacity_}, {ptr, size});
 }
 
 std::pair<void *, size_t> HugePageMemoryPool::get_page_boundaries(const void *ptr) {
-    auto byte_ptr    = static_cast<const std::byte *>(ptr);
-    auto initial     = static_cast<std::byte *>(initial_address_);
-    auto max_address = initial + total_capacity_;
-    if (byte_ptr < initial || byte_ptr > max_address) {
+    if (!is_buffer_within_bounds({initial_address_, total_capacity_}, {const_cast<void *>(ptr), 0})) {
         std::ostringstream err;
         err << "The Provided address " << static_cast<const void*>(ptr)
             << " is not within the bounds of the HugePageMemoryPool";
         throw std::runtime_error(err.str());
     }
 
-    auto n_th_page = (byte_ptr - initial) / PAGE_SIZE;
+    auto initial = reinterpret_cast<std::byte *>(const_cast<void *>(initial_address_));
+    auto buf = reinterpret_cast<std::byte *>(const_cast<void *>(ptr));
+    auto n_th_page = (buf - initial) / PAGE_SIZE;
     return std::make_pair(static_cast<void *>(initial + n_th_page * PAGE_SIZE), PAGE_SIZE);
 }
 
@@ -445,13 +454,16 @@ void SimpleMemoryPool::free(void *ptr, size_t size, size_t alignment) {
 
 std::pair<void *, size_t> SimpleMemoryPool::get_page_boundaries(const void *ptr) {
     std::lock_guard<std::recursive_mutex> lock(allocated_buffers_mutex);
-    if (allocated_buffers.find((void *) ptr) == allocated_buffers.end()) {
-        std::ostringstream err;
-        err << "The Provided address " << ptr << " is not within the bounds of the memory pool!";
-        throw std::runtime_error(err.str());
+
+    for (const auto &buffer : allocated_buffers) {
+        if (is_buffer_within_bounds({buffer.first, buffer.second}, {const_cast<void *>(ptr), 0})) {
+            return {buffer.first, buffer.second};
+        }
     }
 
-    return std::make_pair((void *) ptr, allocated_buffers[(void *) ptr]);
+    std::ostringstream err;
+    err << "The Provided address " << ptr << " is not within the bounds of the memory pool!";
+    throw std::runtime_error(err.str());
 }
 
 }  // namespace libstf
