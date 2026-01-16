@@ -204,7 +204,7 @@ interface typed_ndata_i #(
 
     task tie_off_m(); // Tie off unused slave signals
         data  = '0;
-        typ   = '0;
+        typ   = BYTE_T;
         keep  = '0;
         last  = 1'b0;
         valid = 1'b0;
