@@ -102,7 +102,16 @@ private:
 
 class StreamConfig : public Config {
 public:
+    StreamConfig(std::shared_ptr<coyote::cThread> cthread, uint32_t addr_offset);
+
+    void enqueue_stream_config(stream_t stream_id, type_t type, uint8_t select);
+
+    const stream_t num_streams() const { return num_streams_; }
+
     static constexpr uint32_t ID = 1;
+
+private:
+    stream_t num_streams_;
 };
 
 }  // namespace libstf
