@@ -1,6 +1,7 @@
 #pragma once
 
 #include <ostream>
+#include <variant>
 
 namespace libstf {
 
@@ -51,4 +52,9 @@ constexpr size_t size_of(type_t type) {
     throw std::invalid_argument("Invalid type");
 }
 
+using Value = std::variant<char, int32_t, int64_t, float, double>;
+
 } // namespace celeris
+
+// If this is not defined in the global namespace, we cannot find it in Celeris
+std::ostream &operator<<(std::ostream &out, const libstf::Value &v);

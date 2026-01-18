@@ -17,4 +17,13 @@ std::shared_ptr<Buffer> make_buffer(std::shared_ptr<MemoryPool> memory_pool, voi
         BufferDeleter(memory_pool));
 }
 
+std::shared_ptr<Buffer> make_buffer(std::shared_ptr<MemoryPool> memory_pool, size_t size, Status &status) {
+    void *ptr;
+    status = memory_pool->allocate(size,  &ptr);
+
+    return std::shared_ptr<Buffer>(
+        new Buffer{.ptr = ptr, .size = size, .capacity = size}, 
+        BufferDeleter(memory_pool));
+}
+
 } // namespace libstf

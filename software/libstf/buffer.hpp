@@ -23,5 +23,6 @@ private:
 };
 
 std::shared_ptr<Buffer> make_buffer(std::shared_ptr<MemoryPool> memory_pool, void *ptr, size_t size, size_t capacity);
+std::shared_ptr<Buffer> make_buffer(std::shared_ptr<MemoryPool> memory_pool, size_t size, Status &status);
 
 } // namespace libstf

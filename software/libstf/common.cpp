@@ -24,3 +24,8 @@ std::ostream &operator<<(std::ostream &out, const type_t &data_type) {
 }
 
 }  // namespace libstf
+
+std::ostream &operator<<(std::ostream &out, const libstf::Value &v) {
+    std::visit([&out](auto &&val) { out << val; }, v);
+    return out;
+}
