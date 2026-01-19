@@ -52,7 +52,28 @@ constexpr size_t size_of(type_t type) {
     throw std::invalid_argument("Invalid type");
 }
 
-using Value = std::variant<char, int32_t, int64_t, float, double>;
+/**
+ * Type dispatcher for type_t. This assumes you pass it a struct with an operator as the Func.
+ */
+template <typename Func, typename... Args>
+auto dispatch_type(libstf::type_t type, Func &&func, Args &&... args) {
+    switch (type) {
+        case libstf::type_t::BYTE_T:
+            return func.template operator()<std::byte>(std::forward<Args>(args)...);
+        case libstf::type_t::INT32_T:
+            return func.template operator()<int32_t>(std::forward<Args>(args)...);
+        case libstf::type_t::INT64_T:
+            return func.template operator()<int64_t>(std::forward<Args>(args)...);
+        case libstf::type_t::FLOAT_T:
+            return func.template operator()<float>(std::forward<Args>(args)...);
+        case libstf::type_t::DOUBLE_T:
+            return func.template operator()<double>(std::forward<Args>(args)...);
+        case type_t::NUM_TYPES: break;
+    }
+    throw std::invalid_argument("Invalid type");
+}
+
+using Value = std::variant<std::byte, int32_t, int64_t, float, double>;
 
 } // namespace celeris
 
