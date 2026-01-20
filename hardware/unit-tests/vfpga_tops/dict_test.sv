@@ -36,7 +36,7 @@ ndata_i #(data64_t, NUM_ELEMENTS) dict_out();
 
 AXI4S axi_out[N_STRM_AXI](.aclk(clk), .aresetn(rst_n));
 
-// -- Configuration -------------------------------------------------------------------------------
+// -- Configuration --------------------------------------------------------------------------------
 write_config_i write_configs[1](.*);
 read_config_i  read_configs [1](.*);
 GlobalConfig #(
@@ -55,7 +55,6 @@ GlobalConfig #(
 
 stream_config_i stream_config[1](.*);
 StreamConfig #(
-    .NUM_SELECT(2),
     .NUM_STREAMS(1)
 ) inst_stream_config (
     .clk(clk),

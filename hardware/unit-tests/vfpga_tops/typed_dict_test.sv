@@ -56,7 +56,6 @@ GlobalConfig #(
 
 stream_config_i stream_config[1](.*);
 StreamConfig #(
-    .NUM_SELECT(2),
     .NUM_STREAMS(1)
 ) inst_stream_config (
     .clk(clk),
