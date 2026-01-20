@@ -1,5 +1,5 @@
 build
-hardware/build_hw/**
+hardware/build_hw
 
 # Generated unit test files
 hardware/unit-tests/diff/**
