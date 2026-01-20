@@ -5,7 +5,8 @@
 /**
  * Converts an ndata_i stream to a different width.
  *
- * Currently only same input and output width and 8 to 16 elements is supported.
+ * Note: Supports any power-of-two IN_WIDTH that is <= OUT_WIDTH. OUT_WIDTH must be a multiple of 
+ * IN_WIDTH.
  */
 module NDataWidthConverter #(
     parameter type data_t
@@ -17,67 +18,68 @@ module NDataWidthConverter #(
     ndata_i.m out // #(data_t, OUT_WIDTH)
 );
 
-localparam IN_WIDTH  = in.NUM_ELEMENTS;
-localparam OUT_WIDTH = out.NUM_ELEMENTS;
+localparam IN_WIDTH           = in.NUM_ELEMENTS;
+localparam OUT_WIDTH          = out.NUM_ELEMENTS;
+localparam NUM_SLOTS          = OUT_WIDTH / IN_WIDTH;
+localparam SLOT_COUNTER_WIDTH = $clog2(NUM_SLOTS);
 
-`ASSERT_ELAB(IN_WIDTH == OUT_WIDTH || IN_WIDTH == 8 && OUT_WIDTH == 16)
+`ASSERT_ELAB(IN_WIDTH <= OUT_WIDTH)
+`ASSERT_ELAB((IN_WIDTH & (IN_WIDTH - 1)) == 0)   // IN_WIDTH is power of 2
+`ASSERT_ELAB((OUT_WIDTH & (OUT_WIDTH - 1)) == 0) // OUT_WIDTH is power of 2
+`ASSERT_ELAB(OUT_WIDTH % IN_WIDTH == 0)          // Exact multiple
 
 generate if (IN_WIDTH == OUT_WIDTH) begin
     `DATA_ASSIGN(in, out)
-end else if (IN_WIDTH == 8 && OUT_WIDTH == 16) begin
-    logic is_upper, n_is_upper;
+end else begin
+    logic[SLOT_COUNTER_WIDTH - 1:0] slot_idx, n_slot_idx;
 
     data_t[OUT_WIDTH - 1:0] data,  n_data;
-    logic[OUT_WIDTH - 1:0]  keep,  n_keep;
+    logic [OUT_WIDTH - 1:0] keep,  n_keep;
     logic                   last,  n_last;
     logic                   valid, n_valid;
 
     assign in.ready = out.ready;
 
     always_ff @(posedge clk) begin
-        if (rst_n == 1'b0) begin
-            is_upper <= 1'b0;
-
-            valid <= 1'b0;
+        if (!rst_n) begin
+            slot_idx <= '0;
+            valid    <= 1'b0;
         end else begin
-            is_upper <= n_is_upper;
-
-            data  <= n_data;
-            keep  <= n_keep;
-            last  <= n_last;
-            valid <= n_valid;
+            slot_idx <= n_slot_idx;
+            data     <= n_data;
+            keep     <= n_keep;
+            last     <= n_last;
+            valid    <= n_valid;
         end
     end
 
     always_comb begin
-        n_is_upper = is_upper;
-
-        n_data  = data;
-        n_keep  = keep;
-        n_last  = last;
-        n_valid = 1'b0;
+        n_slot_idx = slot_idx;
+        n_data     = data;
+        n_keep     = keep;
+        n_last     = last;
+        n_valid    = 1'b0;
 
         if (out.ready) begin
             if (in.valid) begin
-                if (!in.last) begin
-                    n_is_upper = ~is_upper;
+                if (in.last) begin
+                    n_slot_idx = '0;
                 end else begin
-                    n_is_upper = 1'b0;
+                    n_slot_idx = slot_idx + 1; // Wraps around
                 end
             end
 
-            if (!is_upper) begin
-                n_data[7:0]  = in.data;
-                n_keep[15:8] = '0;
-                n_keep[7:0]  = in.keep;
-                
-                if (in.last) begin
-                    n_valid = in.valid;
-                end
-            end else begin
-                n_data[15:8] = in.data;
-                n_keep[15:8] = in.keep;
-                n_valid      = in.valid;
+            if (slot_idx == 0) begin
+                n_keep = '0;
+            end
+
+            for (int i = 0; i < IN_WIDTH; i++) begin
+                n_data[slot_idx * IN_WIDTH + i] = in.data[i];
+                n_keep[slot_idx * IN_WIDTH + i] = in.keep[i];
+            end
+
+            if (in.valid && (in.last || slot_idx == SLOT_COUNTER_WIDTH'(NUM_SLOTS - 1))) begin
+                n_valid = 1'b1;
             end
 
             n_last = in.last;
