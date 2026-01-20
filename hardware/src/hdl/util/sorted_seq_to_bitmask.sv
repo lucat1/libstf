@@ -13,11 +13,15 @@ module SortedSeqToBitmask #(
 
 `RESET_RESYNC // Reset pipelining
 
+localparam DATA_WIDTH = $bits(data_t);
+localparam RIDX_WIDTH = $clog2(NUM_ELEMENTS) + 1;
+
 typedef logic[NUM_ELEMENTS - 1:0] mask_t;
+typedef logic[RIDX_WIDTH - 1:0]   rid_t;
 
 // The first ID we are currently creating the mask for and IDs relative to this
-data_t                     current_id, n_current_id, id_end_of_mask;
-data_t[NUM_ELEMENTS - 1:0] relative_ids; // TODO: Reduce width
+data_t                    current_id, n_current_id, id_end_of_mask;
+rid_t[NUM_ELEMENTS - 1:0] relative_ids;
 
 mask_t current_mask, mask, n_mask;
 mask_t current_processed, processed, n_processed;
@@ -32,7 +36,8 @@ logic  n_out_valid;
 
 always_comb begin
     for (int i = 0; i < NUM_ELEMENTS; i++) begin
-        relative_ids[i] = in.data[i] - current_id;
+        data_t diff = in.data[i] - current_id;
+        relative_ids[i] = {|diff[DATA_WIDTH - 1: RIDX_WIDTH - 1], diff[RIDX_WIDTH - 2:0]};
     end
 end
 
