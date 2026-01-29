@@ -3,7 +3,8 @@ import lynxTypes::*;
 
 `include "axi_macros.svh"
 
-parameter NUM_ELEMENTS = 8;
+parameter NUM_IDS = 16;
+parameter DATABEAT_SIZE = 64;
 
 // -- Tie-off unused interfaces and signals --------------------------------------------------------
 always_comb notify.tie_off_m();
@@ -30,9 +31,9 @@ assign rst_n = aresetn;
 AXI4S axi_host_recv_0(.aclk(clk), .aresetn(rst_n));
 AXI4S axi_host_recv_1(.aclk(clk), .aresetn(rst_n));
 
-ndata_i #(data64_t, NUM_ELEMENTS) dict_values();
-ndata_i #(data32_t, NUM_ELEMENTS) dict_ids();
-ndata_i #(data64_t, NUM_ELEMENTS) dict_out();
+ndata_i #(data32_t, NUM_IDS) dict_ids();
+typed_ndata_i #(DATABEAT_SIZE) dict_values();
+typed_ndata_i #(DATABEAT_SIZE) dict_out();
 
 AXI4S axi_out[N_STRM_AXI](.aclk(clk), .aresetn(rst_n));
 
@@ -55,7 +56,6 @@ GlobalConfig #(
 
 stream_config_i stream_config[1](.*);
 StreamConfig #(
-    .NUM_SELECT(2),
     .NUM_STREAMS(1)
 ) inst_stream_config (
     .clk(clk),
@@ -68,24 +68,21 @@ StreamConfig #(
 );
 
 ready_valid_i #(type_t) data_type();
-ready_valid_i #(type_t) in_data_type();
-ready_valid_i #(type_t) out_data_type();
 
 `CONFIG_SIGNALS_TO_INTF(stream_config[0].data_type, data_type)
-`READY_DUPLICATE(2, data_type, {in_data_type, out_data_type})
 
 assign stream_config[0].select_ready = 1'b1;
 
 // -- Input multiplexing ---------------------------------------------------------------------------
 // Values
 `AXIS_ASSIGN(axis_host_recv[0], axi_host_recv_0) // AXI4SR to AXI4S
-AXIToNDataTyped #(
-    .NUM_ELEMENTS(NUM_ELEMENTS)
+AXIToTypedNData #(
+    .DATABEAT_SIZE(DATABEAT_SIZE)
 ) inst_values_axi_to_data (
     .clk(clk),
     .rst_n(rst_n),
 
-    .in_type(in_data_type),
+    .in_type(data_type),
 
     .in(axi_host_recv_0),
     .out(dict_values)
@@ -97,7 +94,7 @@ AXIToNData #(
     .AXI_WIDTH(AXI_DATA_BITS),
     .NUM_AXI_ELEMENTS(16),
     .data_t(data32_t),
-    .NUM_ELEMENTS(NUM_ELEMENTS)
+    .NUM_ELEMENTS(NUM_IDS)
 ) inst_dict_id_axi_to_data (
     .clk(clk),
     .rst_n(rst_n),
@@ -107,10 +104,9 @@ AXIToNData #(
 );
 
 // -- Materialization ------------------------------------------------------------------------------
-Dictionary #(
-    .value_t(data64_t),
+TypedDictionary #(
     .id_t(data32_t),
-    .NUM_ELEMENTS(NUM_ELEMENTS)
+    .DATABEAT_SIZE(DATABEAT_SIZE)
 ) inst_dict (
     .clk(clk),
     .rst_n(rst_n),
@@ -122,13 +118,11 @@ Dictionary #(
 );
 
 // -- Output multiplexing --------------------------------------------------------------------------
-NDataToAXITyped #(
-    .NUM_ELEMENTS(NUM_ELEMENTS)
+TypedNDataToAXI #(
+    .DATABEAT_SIZE(DATABEAT_SIZE)
 ) inst_data_to_axi (
     .clk(clk),
     .rst_n(rst_n),
-
-    .out_type(out_data_type),
 
     .in(dict_out),
     .out(axi_out[0])
