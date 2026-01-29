@@ -214,3 +214,48 @@ assign out.tvalid      = skid_out.valid;
 assign skid_out.ready = out.tready;
 
 endmodule
+
+module TypedNDataSkidBuffer #(
+    parameter DATABEAT_SIZE
+) (
+    input logic clk,
+    input logic rst_n,
+
+    typed_ndata_i.s in, // #(DATABEAT_SIZE) 
+    typed_ndata_i.m out // #(DATABEAT_SIZE)
+);
+
+typedef struct packed {
+    data8_t[DATABEAT_SIZE - 1:0] data;
+    type_t                     typ;
+    logic[DATABEAT_SIZE - 1:0]  keep;
+    logic                      last;
+} tmp_t;
+
+ready_valid_i #(tmp_t) skid_in(), skid_out();
+
+assign skid_in.data.data = in.data;
+assign skid_in.data.typ  = in.typ;
+assign skid_in.data.keep = in.keep;
+assign skid_in.data.last = in.last;
+assign skid_in.valid     = in.valid;
+assign in.ready          = skid_in.ready;
+
+SkidBuffer #(
+    .data_t(tmp_t)
+) inst_skid_buffer (
+    .clk(clk),
+    .rst_n(rst_n),
+
+    .in(skid_in),
+    .out(skid_out)
+);
+
+assign out.data       = skid_out.data.data;
+assign out.typ        = skid_out.data.typ;
+assign out.keep       = skid_out.data.keep;
+assign out.last       = skid_out.data.last;
+assign out.valid      = skid_out.valid;
+assign skid_out.ready = out.ready;
+
+endmodule
