@@ -40,7 +40,7 @@ public:
 
     void write_register(ConfigRegister reg);
 
-    static constexpr uint32_t ID = -1;
+    static constexpr uint64_t ID = -1;
 
 private:
     std::shared_ptr<coyote::cThread> cthread;
@@ -59,12 +59,12 @@ public:
      * Checks whether a config with a certain config_id is present in the system. Can be used to 
      * check which operators the Celeris instance flashed to the device supports.
      */
-    bool has_config(uint32_t config_id);
+    bool has_config(uint64_t config_id);
 
     /**
      * Get's the address range of a config with the given config_id.
      */
-    std::pair<uint32_t, uint32_t> get_config_bounds(uint32_t config_id);
+    std::pair<uint32_t, uint32_t> get_config_bounds(uint64_t config_id);
 
     uint64_t system_id() { return system_id_; }
 
@@ -72,7 +72,7 @@ private:
     uint64_t system_id_;
     uint32_t num_configs_;
 
-    std::vector<uint32_t> config_ids;
+    std::vector<uint64_t> config_ids;
     std::vector<uint32_t> config_bounds;
 };
 
@@ -94,7 +94,7 @@ public:
 
     const stream_t num_streams() const { return num_streams_; }
 
-    static constexpr uint32_t ID = 0;
+    static constexpr uint64_t ID = 0;
 
 private:
     stream_t num_streams_;
@@ -108,7 +108,7 @@ public:
 
     const stream_t num_streams() const { return num_streams_; }
 
-    static constexpr uint32_t ID = 1;
+    static constexpr uint64_t ID = 1;
 
 private:
     stream_t num_streams_;
