@@ -87,7 +87,7 @@ GlobalConfig::GlobalConfig(std::shared_ptr<coyote::cThread> cthread) : Config(ct
     }
 }
 
-std::pair<uint32_t, uint32_t> GlobalConfig::get_config_bounds(uint32_t config_id) {
+std::pair<uint32_t, uint32_t> GlobalConfig::get_config_bounds(uint64_t config_id) {
     auto it = std::find(config_ids.begin(), config_ids.end(), config_id);
     assert(it != config_ids.end());
     
@@ -96,7 +96,7 @@ std::pair<uint32_t, uint32_t> GlobalConfig::get_config_bounds(uint32_t config_id
     return std::pair<uint32_t, uint32_t>(config_bounds[config_idx], config_bounds[config_idx + 1]);
 }
 
-bool GlobalConfig::has_config(uint32_t config_id) {
+bool GlobalConfig::has_config(uint64_t config_id) {
     auto it = std::find(config_ids.begin(), config_ids.end(), config_id);
     return it != config_ids.end();
 }
