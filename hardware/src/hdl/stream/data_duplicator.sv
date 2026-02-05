@@ -42,7 +42,7 @@ for (genvar I = 0; I < NUM_OUTPUTS; I++) begin
 
     assign out[I].data  = in.data;
     assign out[I].keep  = in.keep;
-    assign out[I].last  = in.last
+    assign out[I].last  = in.last;
     assign out[I].valid = in.valid && !seen[I];
 end
 
