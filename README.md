@@ -55,9 +55,7 @@ If you're building with profiling enabled, you will also need Caliper. To instal
 ./scripts/install_caliper.sh
 ```
 
-This will install Caliper alongside jemalloc in `~/opt`.
-
-The you can build the libstf library as follows:
+This will install Caliper alongside jemalloc in `~/opt`. Then, you can build the libstf library as follows:
 
 ```bash
 mkdir build && cd build
