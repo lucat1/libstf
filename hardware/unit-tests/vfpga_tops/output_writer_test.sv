@@ -11,13 +11,13 @@ assign clk   = aclk;
 assign rst_n = aresetn;
 
 // -- Configuration --------------------------------------------------------------------------------
-write_config_i write_configs[1](.*);
-read_config_i  read_configs [1](.*);
+write_config_i write_configs[2](.*);
+read_config_i  read_configs [2](.*);
 
 GlobalConfig #(
     .SYSTEM_ID(0),
-    .NUM_CONFIGS(1),
-    .ADDR_SPACE_SIZES({N_STRM_AXI + 1})
+    .NUM_CONFIGS(2),
+    .ADDR_SPACE_SIZES({N_STRM_AXI + 1, 2 * N_STRM_AXI + 1})
 ) inst_config (
     .clk(clk),
     .rst_n(rst_n),
@@ -41,7 +41,72 @@ MemConfig #(
     .out(mem_config)
 );
 
-// -- Output writer --------------------------------------
+// -- Profiling ------------------------------------------------------------------------------------
+
+// We use this for profiling in the output buffer manager software example
+data64_t perf_counters[4 * N_STRM_AXI];
+data64_t write_regs[1];
+GenericConfig #(
+    .NUM_READ_REGISTERS(4 * N_STRM_AXI),
+    .NUM_WRITE_REGISTERS(1)
+) inst_generic_config (
+    .clk(clk),
+    .rst_n(rst_n),
+
+    .write_config(write_configs[1]),
+    .read_config(read_configs[1]),
+
+    .in(perf_counters),
+    .out(write_regs)
+);
+
+data64_t num_run;
+assign num_runs = write_regs[0];
+
+for (genvar I = 0; I < N_STRM_AXI; I++) begin
+    data64_t run_counter, n_run_counter;
+    logic    is_stop;
+
+    always_ff @(posedge clk) begin
+        if (!rst_n) begin
+            run_counter <= '0;
+        end else begin
+            run_counter <= n_run_counter;
+        end
+    end
+
+    always_comb begin
+        n_run_counter = run_counter;
+        is_stop = 1'b0;
+
+        if (axi_host_recv[I].tvalid && axi_host_recv[I].tlast && axi_host_recv[I].tready) begin
+            if (run_counter == num_runs - 1) begin
+                n_run_counter = '0;
+                is_stop = 1'b1;
+            end else begin
+                n_run_counter = run_counter + 1;
+            end
+        end
+    end
+
+    StreamProfiler inst_perf_counter (
+        .clk(clk),
+        .rst_n(rst_n),
+
+        .last (axi_host_recv[I].tlast),
+        .valid(axi_host_recv[I].tvalid),
+        .ready(axi_host_recv[I].tready),
+
+        .stop(is_stop),
+
+        .handshakes(perf_counters[4 * I]),
+        .starved   (perf_counters[4 * I + 1]),
+        .stalled   (perf_counters[4 * I + 2]),
+        .idle      (perf_counters[4 * I + 3])
+    );
+end
+
+// -- Output writer --------------------------------------------------------------------------------
 AXI4S axi_host_recv[N_STRM_AXI](.aclk(clk), .aresetn(rst_n));
 for (genvar I = 0; I < N_STRM_AXI; I++) begin
     `AXIS_ASSIGN(axis_host_recv[I], axi_host_recv[I]) // AXI4SR to AXI4S

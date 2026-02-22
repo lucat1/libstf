@@ -25,7 +25,7 @@ void print_usage(const char* prog) {
               << "\n"
               << "Options:\n"
               << "  -p, --smallpages        Disable huge pages (for simulation)\n"
-              << "  -e, --enqueued N        Number of enqueued output buffers (default: 2)\n"
+              << "  -e, --enqueued N        Number of output buffers to enqueue (default: 2)\n"
               << "  -b, --buffer-size BYTES Output buffer capacity (default: 256MiB)\n"
               << "  -S, --streams N         Number of streams (default: 1)\n"
               << "  -s, --size BYTES        Input size (default: 512MiB)\n"
@@ -84,7 +84,7 @@ int main(int argc, char *argv[])  {
 
     HEADER("CLI PARAMETERS:");
     std::cout << "Enable hugepages: " << args.huge_pages << std::endl;
-    std::cout << "Number of enqueued buffers: " << args.num_enqueued_buffers << std::endl;
+    std::cout << "Number of buffers to enqueue: " << args.num_enqueued_buffers << std::endl;
     std::cout << "Output buffer size: " << args.buffer_size << std::endl;
     std::cout << "Number of streams: " << args.num_streams << std::endl;
     std::cout << "Input size: " << args.size << std::endl;
@@ -107,9 +107,12 @@ int main(int argc, char *argv[])  {
     GlobalConfig global_config(cthread);
     auto tlb_manager = std::make_shared<libstf::TLBManager>(cthread, mem_pool);
     auto mem_config = global_config.get_config<libstf::MemConfig>();
+    auto perf_config = global_config.get_config<libstf::Config>();
     OutputBufferManager output_buffer_manager(cthread, mem_config, mem_pool, tlb_manager, 
         args.num_enqueued_buffers, args.buffer_size);
     obm_ptr = &output_buffer_manager;
+
+    perf_config.write_register(ConfigRegister(0, args.num_runs));
 
     assert(global_config.system_id() == 0);
     assert(args.num_streams > 0 && args.num_streams <= mem_config.num_streams());
@@ -141,18 +144,18 @@ int main(int argc, char *argv[])  {
     std::cout << "Starting execution..." << std::endl;
     auto start = std::chrono::high_resolution_clock::now();
 
-    stream_mask_t mask_all((1 << args.num_runs) - 1);
+    stream_mask_t mask_all((1 << args.num_streams) - 1);
     std::vector<std::shared_ptr<OutputHandle>> handles;
     for (size_t i = 0; i < args.num_runs; i++) {
         handles.emplace_back(output_buffer_manager.acquire_output_handle(mask_all));
     }
 
-    std::vector<std::vector<std::shared_ptr<Buffer>>> actual_result(args.num_runs);
-    std::thread result_fetcher([&args, &handles, &actual_result]() {
+    std::vector<std::vector<std::shared_ptr<Buffer>>> output(args.num_runs);
+    std::thread result_fetcher([&args, &handles, &output]() {
         for (size_t i = 0; i < args.num_runs; i++) {
             while (handles[i]->any_stream_has_more_output()) {
                 for (size_t j = 0; j < args.num_streams; j++) {
-                    actual_result[i].emplace_back(handles[i]->get_next_stream_output(j));
+                    output[i].emplace_back(handles[i]->get_next_stream_output(j));
                 }
             }
         }
@@ -171,65 +174,50 @@ int main(int argc, char *argv[])  {
     // Verify result
     std::cout << "Verifying output data..." << std::endl;
 
-    /*auto actual_size = 0;
-    for (auto actual_batch : actual_result) {
-        assert(actual_batch->num_columns() == expected_result->num_columns());
-
-        for (size_t i = 0; i < expected_result->num_columns(); i++) {
-            assert(actual_batch->get_column(i).type() == expected_result->get_column(i).type());
-        }
-
-        actual_size += actual_batch->num_rows();
-    }
-    assert(actual_size == expected_result->num_rows());
-
     size_t num_wrong_values = 0;
-    for (auto i = 0; i < expected_result->num_columns(); i++) {
-        for (auto actual_batch : actual_result) {
-            auto &actual_column = actual_batch->get_column(i);
-            auto &expected_column = expected_result->get_column(i);
-            auto wrong_rows = diff(actual_column, expected_column);
-
-            if (wrong_rows.size() > 0) {
-                if (num_wrong_values == 0) {
-                    HEADER("VERIFICATION FAILED:");
-                }
-                auto i = 0;
-                while (i < wrong_rows.size() && num_wrong_values < 5) {
-                    auto row_id = wrong_rows[i];
-                    std::cout << "[ASSERT] Result[" << i << "][" << wrong_rows[i] << "]: " << 
-                        actual_column[row_id] << " != " << expected_column[row_id] << std::endl;
-                    num_wrong_values++;
+    for (size_t s = 0; s < args.num_streams; s++) {
+        auto &stream_output = output[s];
+        size_t i = 0;
+        for (auto buffer : stream_output) {
+            auto ptr = (uint64_t *) buffer->ptr;
+            for (size_t j = 0; j < buffer->size / sizeof(uint64_t); j++) {
+                if (ptr[j] != i++) {
+                    if (num_wrong_values == 0) {
+                        HEADER("VERIFICATION FAILED:");
+                    }
+                    if (num_wrong_values < 5) {
+                        std::cout << "[ASSERT] Result[" << s << "]: " << ptr[j] << " != " << i << std::endl;
+                    }
                     if (num_wrong_values == 5) {
                         std::cout << "..." << std::endl;
                     }
-                    i++;
+                    num_wrong_values++;
                 }
-                num_wrong_values += wrong_rows.size() - i;
             }
         }
+        assert(i == args.size / sizeof(uint64_t));
     }
 
-    if (num_wrong_values > 0) {
-        std::cout << num_wrong_values << " wrong result values" << std::endl;
-        return EXIT_FAILURE;
-    }*/
-
     // Print results
-    /*auto build_cycles      = op.build_cycles();
-    auto build_idle_cycles = op.build_idle_cycles();
-    auto probe_cycles      = op.probe_cycles();
-    auto probe_idle_cycles = op.probe_idle_cycles();
+    size_t handshake_cycles = 0;
+    size_t starved_cycles = 0;
+    size_t stalled_cycles = 0;
+    size_t idle_cycles = 0;
+    for (size_t i = 0; i < args.num_streams; i++) {
+        handshake_cycles += perf_config.read_register(4 * i + 1).value();
+        starved_cycles   += perf_config.read_register(4 * i + 2).value();
+        stalled_cycles   += perf_config.read_register(4 * i + 3).value();
+        idle_cycles      += perf_config.read_register(4 * i + 4).value();
+    }
 
-    auto device_runtime = (double) (build_cycles + probe_cycles) / 250.0;*/
+    auto device_runtime = (double) (handshake_cycles + starved_cycles + stalled_cycles + idle_cycles) / 250.0;
 
     HEADER("RESULTS:");
     std::cout << "Host runtime: " << us << "us" << std::endl;
-    //std::cout << "Cycles: " << build_cycles << ", " << probe_cycles << std::endl;
-    //std::cout << "Idle cycles: " << build_idle_cycles << ", " << probe_idle_cycles << std::endl;
-    //std::cout << "Result size: " << actual_size << " rows" << std::endl;
-    std::cout << "Host throughput: " << (double) (args.size * args.num_runs) / 1024 / 1024 / us << "MiB/s" << std::endl;
-    //std::cout << "Device throughput: " << (double) (s_size + r_size) / device_runtime << "M tuples/s" << std::endl;
+    std::cout << "Cycles: " << handshake_cycles << ", " << starved_cycles << ", " << stalled_cycles << std::endl;
+    std::cout << "Idle cycles: " << idle_cycles << std::endl;
+    std::cout << "Host throughput: " << (double) (args.size * args.num_runs) / us << "MB/s" << std::endl;
+    std::cout << "Device throughput: " << (double) (args.size * args.num_runs) / device_runtime << "MB/s" << std::endl;
     
     return EXIT_SUCCESS;
 }

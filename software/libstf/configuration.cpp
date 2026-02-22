@@ -56,15 +56,18 @@ std::ostream &operator<<(std::ostream &out, const std::vector<ConfigRegister> &c
 // Config
 // ----------------------------------------------------------------------------
 
-Config::Config(std::shared_ptr<coyote::cThread> cthread, uint32_t addr_offset) : 
+Config::Config(std::shared_ptr<coyote::cThread> cthread, uint32_t addr_offset, uint32_t num_regs) : 
         cthread(cthread), 
-        addr_offset(addr_offset) {}
+        addr_offset(addr_offset),
+        num_regs(num_regs) {}
 
 ConfigRegister Config::read_register(uint32_t addr) {
+    assert(addr < num_regs);
     return ConfigRegister(addr_offset + addr, cthread->getCSR(addr_offset + addr));
 }
 
 void Config::write_register(ConfigRegister reg) {
+    assert(reg.addr() < num_regs);
     cthread->setCSR(reg.value(), addr_offset + reg.addr());
 }
 
@@ -72,7 +75,7 @@ void Config::write_register(ConfigRegister reg) {
 // GlobalConfig
 // ----------------------------------------------------------------------------
 
-GlobalConfig::GlobalConfig(std::shared_ptr<coyote::cThread> cthread) : Config(cthread, 0) {
+GlobalConfig::GlobalConfig(std::shared_ptr<coyote::cThread> cthread) : Config(cthread, 0, -1) {
     system_id_   = read_register(0).value();
     num_configs_ = read_register(1).value();
 
@@ -105,8 +108,8 @@ bool GlobalConfig::has_config(uint64_t config_id) {
 // MemConfig
 // ----------------------------------------------------------------------------
 
-MemConfig::MemConfig(std::shared_ptr<coyote::cThread> cthread, uint32_t addr_offset) : 
-    Config(cthread, addr_offset), 
+MemConfig::MemConfig(std::shared_ptr<coyote::cThread> cthread, uint32_t addr_offset, uint32_t num_regs) : 
+    Config(cthread, addr_offset, num_regs), 
     num_streams_(read_register(1).value()),
     maximum_num_enqueued_buffers_(read_register(2).value()) {}
 
@@ -131,8 +134,8 @@ void MemConfig::enqueue_buffer(stream_t stream_id, Buffer &buffer) {
 // StreamConfig
 // ----------------------------------------------------------------------------
 
-StreamConfig::StreamConfig(std::shared_ptr<coyote::cThread> cthread, uint32_t addr_offset) : 
-    Config(cthread, addr_offset), 
+StreamConfig::StreamConfig(std::shared_ptr<coyote::cThread> cthread, uint32_t addr_offset, uint32_t num_regs) : 
+    Config(cthread, addr_offset, num_regs), 
     num_streams_(read_register(1).value()) {}
 
 void StreamConfig::enqueue_stream_config(stream_t stream_id, type_t type, uint8_t select) {

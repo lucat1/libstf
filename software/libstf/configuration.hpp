@@ -31,7 +31,7 @@ std::ostream& operator<<(std::ostream& out, const std::vector<ConfigRegister>& c
 
 class Config {
 public:
-    Config(std::shared_ptr<coyote::cThread> cthread, uint32_t addr_offset);
+    Config(std::shared_ptr<coyote::cThread> cthread, uint32_t addr_offset, uint32_t num_regs);
 
     /**
      * Read configuration value from addr starting at addr_offset.
@@ -45,6 +45,7 @@ public:
 protected:
     std::shared_ptr<coyote::cThread> cthread;
     uint32_t addr_offset;
+    uint32_t num_regs;
 };
 
 class GlobalConfig : private Config {
@@ -78,8 +79,10 @@ public:
               throw std::runtime_error("flashed design is missing configuration of type: " + name);
             }
 
-            auto addr_offset = std::get<0>(get_config_bounds(T::ID));
-            configs_[T::ID] = std::make_unique<T>(cthread, addr_offset);
+            auto bounds = get_config_bounds(T::ID);
+            auto addr_offset = std::get<0>(bounds);
+            auto num_regs = std::get<1>(bounds) - addr_offset;
+            configs_[T::ID] = std::make_unique<T>(cthread, addr_offset, num_regs);
         }
 
         return *static_cast<T *>(configs_[T::ID].get());
@@ -96,7 +99,7 @@ private:
 
 class MemConfig : public Config {
 public:
-    MemConfig(std::shared_ptr<coyote::cThread> cthread, uint32_t addr_offset);
+    MemConfig(std::shared_ptr<coyote::cThread> cthread, uint32_t addr_offset, uint32_t num_regs);
 
     /**
      * Writes the CSR registers to add a new buffer to the FPGA for the given stream.
@@ -123,7 +126,7 @@ private:
 
 class StreamConfig : public Config {
 public:
-    StreamConfig(std::shared_ptr<coyote::cThread> cthread, uint32_t addr_offset);
+    StreamConfig(std::shared_ptr<coyote::cThread> cthread, uint32_t addr_offset, uint32_t num_regs);
 
     void enqueue_stream_config(stream_t stream_id, type_t type, uint8_t select);
 
