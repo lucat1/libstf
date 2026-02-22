@@ -35,9 +35,9 @@ public:
      * @param memory_pool
      * @param tlb_manager
      */
-    OutputBufferManager(std::shared_ptr<coyote::cThread> cthread, MemConfig &mem_config, 
+    OutputBufferManager(std::shared_ptr<coyote::cThread> cthread, MemConfig mem_config, 
         std::shared_ptr<MemoryPool> memory_pool, 
-        std::shared_ptr<TLBManager> tlb_manager, stream_t num_streams);
+        std::shared_ptr<TLBManager> tlb_manager);
 
     ~OutputBufferManager();
 

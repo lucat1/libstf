@@ -1,7 +1,6 @@
 #include <libstf/output_buffer_manager.hpp>
 #include <libstf/memory_pool.hpp>
-
-#include <any>
+#include <libstf/profiling.hpp>
 
 namespace libstf {
 
@@ -20,9 +19,9 @@ struct InterruptValue {
 };
 
 std::ostream& operator<<(std::ostream& out, const InterruptValue& expr) {
-    out << "Got interrupt with values: .last = " << expr.last;
+    out << "InterruptValue{last = " << expr.last;
     out << ", bytes_written = " << expr.bytes_written;
-    out << ", stream_id = " << std::to_string(expr.stream_id);
+    out << ", stream_id = " << std::to_string(expr.stream_id) << "}";
     return out;
 }
 
@@ -56,18 +55,20 @@ InterruptValue parse_interrupt_value(int value) {
     return result;
 }
 
+const std::string prefix = "libstf::OutputBufferManager::";
+
 // ----------------------------------------------------------------------------
 // Public methods
 // ----------------------------------------------------------------------------
 OutputBufferManager::OutputBufferManager(std::shared_ptr<coyote::cThread> cthread, 
-    MemConfig &mem_config, std::shared_ptr<MemoryPool> memory_pool, 
-    std::shared_ptr<TLBManager> tlb_manager, stream_t num_streams)
+    MemConfig mem_config, std::shared_ptr<MemoryPool> memory_pool, 
+    std::shared_ptr<TLBManager> tlb_manager)
         : cthread(cthread)
         , mem_config(mem_config)
         , memory_pool(memory_pool)
         , tlb_manager(tlb_manager)
         , allocation_strategy(BufferAllocationStrategy::MAXIMUM_ALLOCATION_SIZE)
-        , NUM_STREAMS(num_streams)
+        , NUM_STREAMS(mem_config.num_streams())
         , enqueued_buffers(NUM_STREAMS)
         , enqueued_handles(NUM_STREAMS) {}
 
@@ -81,6 +82,7 @@ OutputBufferManager::~OutputBufferManager() {
 }
 
 void OutputBufferManager::handle_fpga_interrupt(int coyote_value) {
+    Profiler::open_regions({prefix + "handle_fpga_interrupt"});
     // 1. Parse the value
     auto parsed = parse_interrupt_value(coyote_value);
 
@@ -94,11 +96,13 @@ void OutputBufferManager::handle_fpga_interrupt(int coyote_value) {
 
     // 3. Enqueue new buffer
     enqueue_buffer_for_stream(parsed.stream_id);
+    Profiler::close_regions({prefix + "handle_fpga_interrupt"});
 }
 
 std::shared_ptr<OutputHandle> OutputBufferManager::acquire_output_handle(stream_mask_t active_mask) {
     assert(active_mask.any() && (active_mask >> NUM_STREAMS).none());
 
+    Profiler::open_regions({prefix + "acquire_output_handle"});
     std::shared_ptr<OutputHandle> handle(new OutputHandle(memory_pool, active_mask, NUM_STREAMS));
 
     std::lock_guard guard(enqueued_buffers_mutex);
@@ -112,6 +116,7 @@ std::shared_ptr<OutputHandle> OutputBufferManager::acquire_output_handle(stream_
         }
     }
 
+    Profiler::close_regions({prefix + "acquire_output_handle"});
     return handle;
 }
 
@@ -132,6 +137,8 @@ void OutputBufferManager::free_buffers_in_queue(std::queue<Buffer>& queue) {
 
 void OutputBufferManager::move_current_buffer_to_handle(stream_t stream_id, uint32_t bytes_written, bool last) {
     assert(!enqueued_handles[stream_id].empty());
+
+    Profiler::open_regions({prefix + "move_current_buffer_to_handle"});
     auto &active_handle = enqueued_handles[stream_id].front();
     auto &active_buffer = enqueued_buffers[stream_id].front();
 
@@ -164,6 +171,8 @@ void OutputBufferManager::move_current_buffer_to_handle(stream_t stream_id, uint
         active_handle->mark_done(stream_id);
         enqueued_handles[stream_id].pop();
     }
+
+    Profiler::close_regions({prefix + "move_current_buffer_to_handle"});
 }
 
 size_t OutputBufferManager::get_next_buffer_capacity() {
@@ -184,6 +193,8 @@ size_t OutputBufferManager::get_next_buffer_capacity() {
 }
 
 void OutputBufferManager::enqueue_buffer_for_stream(stream_t stream_id) {
+    Profiler::open_regions({prefix + "enqueue_buffer_for_stream"});
+
     // 1. Allocate new memory
     Buffer buffer = {};
     buffer.capacity       = get_next_buffer_capacity();
@@ -199,6 +210,8 @@ void OutputBufferManager::enqueue_buffer_for_stream(stream_t stream_id) {
 
     // 3. Write the buffer to the FPGA
     mem_config.enqueue_buffer(stream_id, buffer);
+
+    Profiler::close_regions({prefix + "enqueue_buffer_for_stream"});
 }
 
 void OutputBufferManager::ensure_stream_has_buffers(stream_t stream_id) {
