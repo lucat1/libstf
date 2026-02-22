@@ -42,7 +42,7 @@ public:
 
     static constexpr uint64_t ID = -1;
 
-private:
+protected:
     std::shared_ptr<coyote::cThread> cthread;
     uint32_t addr_offset;
 };
