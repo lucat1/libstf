@@ -28,7 +28,9 @@ localparam integer MAXIMUM_HOST_ALLOCATION_LEN_BIT    = 28;
 localparam integer MAXIMUM_HOST_ALLOCATION_SIZE_BYTES = 2 ** MAXIMUM_HOST_ALLOCATION_LEN_BIT - 1;
 localparam integer BUFFER_SIZE_BITS                   = 28 - $clog2(TRANSFER_SIZE_BYTES);
 
-localparam MEM_CONFIG_ID    = 0;
+localparam MEM_CONFIG_ID = 0;
+localparam MAXIMUM_NUM_ENQUEUED_BUFFERS = 64;
+
 localparam STREAM_CONFIG_ID = 1;
 
 // -- Typedef --------------------------------------------------------------------------------------

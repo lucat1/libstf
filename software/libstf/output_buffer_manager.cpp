@@ -62,15 +62,25 @@ const std::string prefix = "libstf::OutputBufferManager::";
 // ----------------------------------------------------------------------------
 OutputBufferManager::OutputBufferManager(std::shared_ptr<coyote::cThread> cthread, 
     MemConfig mem_config, std::shared_ptr<MemoryPool> memory_pool, 
-    std::shared_ptr<TLBManager> tlb_manager)
+    std::shared_ptr<TLBManager> tlb_manager, size_t num_buffers_to_enqueue, size_t buffer_capacity)
         : cthread(cthread)
         , mem_config(mem_config)
         , memory_pool(memory_pool)
         , tlb_manager(tlb_manager)
-        , allocation_strategy(BufferAllocationStrategy::MAXIMUM_ALLOCATION_SIZE)
         , NUM_STREAMS(mem_config.num_streams())
+        , NUM_BUFFERS_TO_ENQUEUE(num_buffers_to_enqueue)
+        , BUFFER_CAPACITY(buffer_capacity)
         , enqueued_buffers(NUM_STREAMS)
-        , enqueued_handles(NUM_STREAMS) {}
+        , enqueued_handles(NUM_STREAMS) {
+    if (NUM_BUFFERS_TO_ENQUEUE == 0)
+        throw std::runtime_error("Number of enqueued buffers has to be larger than 0");
+    if (NUM_BUFFERS_TO_ENQUEUE > mem_config.maximum_num_enqueued_buffers())
+        throw std::runtime_error("Number of enqueued buffers is higher than the maximum supported by the hardware");
+    if (BUFFER_CAPACITY < BYTES_PER_FPGA_TRANSFER)
+        throw std::runtime_error("Buffer capacity has to be >= " + std::to_string(BYTES_PER_FPGA_TRANSFER));
+    if (BUFFER_CAPACITY > MAXIMUM_FPGA_BUFFER_SIZE)
+        throw std::runtime_error("Buffer capacity is larger than the maximum supported by the hardware");
+}
 
 OutputBufferManager::~OutputBufferManager() {
     std::lock_guard guard(enqueued_buffers_mutex);
@@ -175,30 +185,13 @@ void OutputBufferManager::move_current_buffer_to_handle(stream_t stream_id, uint
     Profiler::close_regions({prefix + "move_current_buffer_to_handle"});
 }
 
-size_t OutputBufferManager::get_next_buffer_capacity() {
-    switch (allocation_strategy) {
-        case BufferAllocationStrategy::MINIMIZE_MEMORY_FOOTPRINT: {
-            return BYTES_PER_FPGA_TRANSFER;
-        }
-        case BufferAllocationStrategy::MAXIMUM_ALLOCATION_SIZE: {
-            size_t max_buffer_size = MAXIMUM_FPGA_BUFFER_SIZE;
-            // We need to make sure the allocation is a multiple of MEMORY_BYTES_PER_FPGA_TRANSFER
-            size_t overlap = max_buffer_size % BYTES_PER_FPGA_TRANSFER;
-            return max_buffer_size - overlap;
-        }
-        default: {
-            throw std::runtime_error("OutputBufferManager got unknown allocation strategy");
-        }
-    }
-}
-
 void OutputBufferManager::enqueue_buffer_for_stream(stream_t stream_id) {
     Profiler::open_regions({prefix + "enqueue_buffer_for_stream"});
 
     // 1. Allocate new memory
-    Buffer buffer = {};
-    buffer.capacity       = get_next_buffer_capacity();
-    auto alignment        = HugePageMemoryPool::DEFAULT_ALIGNMENT;
+    Buffer buffer   = {};
+    buffer.capacity = BUFFER_CAPACITY;
+    auto alignment  = HugePageMemoryPool::DEFAULT_ALIGNMENT;
 
     auto res = memory_pool->allocate(buffer.capacity, alignment, &buffer.ptr);
     assert(res.ok());

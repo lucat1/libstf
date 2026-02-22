@@ -20,17 +20,17 @@ module MemConfig #(
 `RESET_RESYNC // Reset pipelining
 
 `ASSERT_ELAB(NUM_STREAMS > 0)
-
-localparam MAX_NUM_ENQUEUED_BUFFERS = 64;
+`ASSERT_ELAB(MAXIMUM_NUM_ENQUEUED_BUFFERS > 0)
 
 // -- Read -----------------------------------------------------------------------------------------
-logic[AXIL_DATA_BITS - 1:0] read_registers[2];
+logic[AXIL_DATA_BITS - 1:0] read_registers[3];
 
 assign read_registers[0] = MEM_CONFIG_ID;
 assign read_registers[1] = NUM_STREAMS;
+assign read_registers[2] = MAXIMUM_NUM_ENQUEUED_BUFFERS;
 
 ConfigReadRegisterFile #(
-    .NUM_REGS(2)
+    .NUM_REGS(3)
 ) inst_read_register_file (
     .clk(clk),
     .rst_n(reset_synced),
@@ -44,7 +44,7 @@ ready_valid_i #(logic) flush_buffers();
 for (genvar I = 0; I < NUM_STREAMS; I++) begin
     ready_valid_i #(buffer_t) buffer();
 
-    ConfigWriteFIFO #(I, MAX_NUM_ENQUEUED_BUFFERS, buffer_t) inst_buffer_fifo (clk, reset_synced, write_config, buffer);
+    ConfigWriteFIFO #(I, MAXIMUM_NUM_ENQUEUED_BUFFERS, buffer_t) inst_buffer_fifo (clk, reset_synced, write_config, buffer);
 
     `CONFIG_INTF_TO_SIGNALS(buffer, out[I].buffer)
 

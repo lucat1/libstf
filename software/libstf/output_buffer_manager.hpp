@@ -30,28 +30,22 @@ public:
      * Creates a new output buffer manager. The manager is responsible for managing buffers for any
      * output produced by the FPGA. This implementation relies on CSR registers and interrupts
      * that tell the OutputBufferManager how much memory was written by the FPGA.
+     * 
+     * The buffer capacity can influence the performance of the FPGA-initiated transfers
+     * and the memory footprint of the OutputBufferManager.
+     * 
      * @param cthread
      * @param mem_config
      * @param memory_pool
      * @param tlb_manager
+     * @param num_buffers_to_enqueue
+     * @param buffer_capacity
      */
     OutputBufferManager(std::shared_ptr<coyote::cThread> cthread, MemConfig mem_config, 
-        std::shared_ptr<MemoryPool> memory_pool, 
-        std::shared_ptr<TLBManager> tlb_manager);
+        std::shared_ptr<MemoryPool> memory_pool, std::shared_ptr<TLBManager> tlb_manager, 
+        size_t num_buffers_to_enqueue = 2, size_t buffer_capacity = MAXIMUM_FPGA_BUFFER_SIZE);
 
     ~OutputBufferManager();
-
-    /**
-     * Sets the memory allocation strategy to use for all future allocations. If you want the
-     * strategy to take effect for initial allocations, you need to perform this call BEFORE
-/    * marking any stream as output stream.
-     *
-     * The memory allocation can influence the performance of the FPGA-initiated transfers
-     * and the memory footprint of the OutputBufferManager.
-     *
-     * @param strategy The new strategy to use to allocation FPGA output memory.
-     */
-    void set_memory_allocation_strategy(BufferAllocationStrategy strategy) {allocation_strategy = strategy;};
 
     /**
      * Function that should be invoked whenever an interrupt from the FPGA is captured
@@ -85,11 +79,9 @@ private:
     std::shared_ptr<MemoryPool> memory_pool;
     std::shared_ptr<TLBManager> tlb_manager;
 
-    static constexpr size_t NUM_BUFFERS_TO_ENQUEUE = 2;
     const stream_t NUM_STREAMS;
-
-    // Allocation strategy to use
-    BufferAllocationStrategy allocation_strategy;
+    const size_t NUM_BUFFERS_TO_ENQUEUE;
+    const size_t BUFFER_CAPACITY;
 
     // State for each stream
     // There is one mutex to protect and changes in the stream_state.
@@ -116,11 +108,6 @@ private:
      * @param last
      */
     void move_current_buffer_to_handle(stream_t stream_id, uint32_t bytes_written, bool last);
-
-    /**
-     * @return The next amount of memory in bytes to allocate
-     */
-    size_t get_next_buffer_capacity();
 
     /**
     * Allocates a new buffer for the given stream and sends it to the FPGA.

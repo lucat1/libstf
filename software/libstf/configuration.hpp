@@ -112,10 +112,13 @@ public:
 
     const stream_t num_streams() const { return num_streams_; }
 
+    const size_t maximum_num_enqueued_buffers() const { return maximum_num_enqueued_buffers_; }
+
     static constexpr uint64_t ID = 0;
 
 private:
     stream_t num_streams_;
+    size_t maximum_num_enqueued_buffers_;
 };
 
 class StreamConfig : public Config {

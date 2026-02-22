@@ -1,4 +1,4 @@
-build
+build*
 hardware/build_hw
 
 # Generated unit test files
