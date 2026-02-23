@@ -20,11 +20,13 @@ constexpr unsigned floor_log2(unsigned val) {
 // -- Constants ------------------------------------------------------------------------------------
 
 // Memory
-static constexpr uint32_t BYTES_PER_FPGA_TRANSFER      = 65536;
-static constexpr uint32_t FPGA_VADDR_BITS              = 48;
-static constexpr uint32_t INTERRUPT_TRANSFER_SIZE_BITS = 28;
-static constexpr uint32_t BUFFER_SIZE_BITS             = INTERRUPT_TRANSFER_SIZE_BITS - floor_log2(BYTES_PER_FPGA_TRANSFER);
-static constexpr uint32_t MAXIMUM_FPGA_BUFFER_SIZE     = (1 << INTERRUPT_TRANSFER_SIZE_BITS) - 1;
+static constexpr uint32_t BYTES_PER_FPGA_TRANSFER           = 65536;
+static constexpr uint32_t FPGA_VADDR_BITS                   = 48;
+static constexpr uint32_t INTERRUPT_TRANSFER_SIZE_BITS      = 28;
+static constexpr uint32_t BUFFER_SIZE_BITS                  = INTERRUPT_TRANSFER_SIZE_BITS - floor_log2(BYTES_PER_FPGA_TRANSFER);
+// -1 so the value can actually be stored in the INTERRPUT_TRANSFER_SIZE_BITS
+static constexpr uint32_t MAXIMUM_FPGA_BUFFER_SIZE          = (1 << INTERRUPT_TRANSFER_SIZE_BITS) - 1;
+static constexpr uint32_t MAXIMUM_OUTPUT_WRITER_BUFFER_SIZE = MAXIMUM_FPGA_BUFFER_SIZE - (MAXIMUM_FPGA_BUFFER_SIZE % BYTES_PER_FPGA_TRANSFER);
 
 static constexpr uint32_t MAXIMUM_FPGA_NUM_STREAMS          = 64;
 static_assert(MAXIMUM_FPGA_NUM_STREAMS <= 64);

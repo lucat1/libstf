@@ -78,8 +78,10 @@ OutputBufferManager::OutputBufferManager(std::shared_ptr<coyote::cThread> cthrea
         throw std::runtime_error("Number of enqueued buffers is higher than the maximum supported by the hardware");
     if (BUFFER_CAPACITY < BYTES_PER_FPGA_TRANSFER)
         throw std::runtime_error("Buffer capacity has to be >= " + std::to_string(BYTES_PER_FPGA_TRANSFER));
-    if (BUFFER_CAPACITY > MAXIMUM_FPGA_BUFFER_SIZE)
-        throw std::runtime_error("Buffer capacity is larger than the maximum supported by the hardware");
+    if (BUFFER_CAPACITY >= MAXIMUM_FPGA_BUFFER_SIZE)
+        throw std::runtime_error("Buffer capacity has to be < " + std::to_string(MAXIMUM_FPGA_BUFFER_SIZE));
+    if (BUFFER_CAPACITY % BYTES_PER_FPGA_TRANSFER)
+        throw std::runtime_error("Buffer capacity has to be a multiple of " + std::to_string(BYTES_PER_FPGA_TRANSFER));
 }
 
 OutputBufferManager::~OutputBufferManager() {

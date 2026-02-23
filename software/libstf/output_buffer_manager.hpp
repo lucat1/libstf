@@ -13,17 +13,6 @@
 
 namespace libstf {
 
-enum class BufferAllocationStrategy {
-    // Allocates only the minimum, needed amount for every stream.
-    // This is equal to FPGAConstants::MEMORY_BYTES_PER_FPGA_TRANSFER
-    MINIMIZE_MEMORY_FOOTPRINT = 0,
-    // Allocates the maximum allocation size for every stream. This is the default.
-    // This strategy creates the least amount of interrupts/stalls on the FPGA and is therefore
-    // the most performant.
-    // Each allocation is equal to FPGAConstants::MAXIMUM_HOST_MEMORY_ALLOCATION_SIZE_BYTES.
-    MAXIMUM_ALLOCATION_SIZE = 1
-}; 
-
 class OutputBufferManager {
 public:
     /**
@@ -43,7 +32,7 @@ public:
      */
     OutputBufferManager(std::shared_ptr<coyote::cThread> cthread, MemConfig mem_config, 
         std::shared_ptr<MemoryPool> memory_pool, std::shared_ptr<TLBManager> tlb_manager, 
-        size_t num_buffers_to_enqueue = 2, size_t buffer_capacity = MAXIMUM_FPGA_BUFFER_SIZE);
+        size_t num_buffers_to_enqueue = 2, size_t buffer_capacity = MAXIMUM_OUTPUT_WRITER_BUFFER_SIZE);
 
     ~OutputBufferManager();
 

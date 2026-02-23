@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_executable(output_buffer_manager src/main.cpp)
 
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../coyote/sim/sw coyote)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../coyote/sw coyote)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../software/ libstf)
 else()
     if(NOT TARGET libstf)

@@ -12,7 +12,7 @@ using namespace libstf;
 struct Args {
     bool   huge_pages = true;
     size_t num_enqueued_buffers = 2;
-    size_t buffer_size = MAXIMUM_FPGA_BUFFER_SIZE;
+    size_t buffer_size = MAXIMUM_OUTPUT_WRITER_BUFFER_SIZE;
     size_t num_streams = 1;
     size_t size = 512 * 1024 * 1024;
     size_t num_runs = 8;
@@ -26,7 +26,7 @@ void print_usage(const char* prog) {
               << "Options:\n"
               << "  -p, --smallpages        Disable huge pages (for simulation)\n"
               << "  -e, --enqueued N        Number of output buffers to enqueue (default: 2)\n"
-              << "  -b, --buffer-size BYTES Output buffer capacity (default: 256MiB)\n"
+              << "  -b, --buffer-size BYTES Output buffer capacity (default: 256MiB - 64KiB)\n"
               << "  -S, --streams N         Number of streams (default: 1)\n"
               << "  -s, --size BYTES        Input size (default: 512MiB)\n"
               << "  -r, --runs N            Number of runs (default: 8)\n"
