@@ -210,13 +210,17 @@ int main(int argc, char *argv[])  {
         idle_cycles      += perf_config.read_register(4 * i + 4).value();
     }
 
-    auto device_runtime = (double) (handshake_cycles + starved_cycles + stalled_cycles + idle_cycles) / 250.0;
+    auto total_cycles = handshake_cycles + starved_cycles + stalled_cycles + idle_cycles;
+    auto device_runtime = ((double) total_cycles) / 250.0;
 
     HEADER("RESULTS:");
     std::cout << "Host runtime: " << us << "us" << std::endl;
-    std::cout << "Cycles: " << handshake_cycles << ", " << starved_cycles << ", " << stalled_cycles << std::endl;
-    std::cout << "Idle cycles: " << idle_cycles << std::endl;
-    std::cout << "Host throughput: " << (double) (args.size * args.num_runs) / us << "MB/s" << std::endl;
+    std::cout << "Host throughput: " << (double) (args.size * args.num_runs) / us << "MB/s" << std::endl << std::endl;
+    std::cout << "Handshake cycles: " << handshake_cycles << " (" << ((double) handshake_cycles) / total_cycles * 100 << "%)" << std::endl;
+    std::cout << "Starved cycles: " << starved_cycles << " (" << ((double) starved_cycles) / total_cycles * 100 << "%)" << std::endl;
+    std::cout << "Stalled cycles: " << stalled_cycles << " (" << ((double) stalled_cycles) / total_cycles * 100 << "%)" << std::endl;
+    std::cout << "Idle cycles: " << idle_cycles << " (" << ((double) idle_cycles) / total_cycles * 100 << "%)" << std::endl;
+    std::cout << "Total cycles: " << total_cycles << std::endl;
     std::cout << "Device throughput: " << (double) (args.size * args.num_runs) / device_runtime << "MB/s" << std::endl;
     
     return EXIT_SUCCESS;

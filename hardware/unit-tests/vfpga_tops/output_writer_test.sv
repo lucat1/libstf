@@ -17,7 +17,7 @@ read_config_i  read_configs [2](.*);
 GlobalConfig #(
     .SYSTEM_ID(0),
     .NUM_CONFIGS(2),
-    .ADDR_SPACE_SIZES({N_STRM_AXI + 1, 2 * N_STRM_AXI + 1})
+    .ADDR_SPACE_SIZES({N_STRM_AXI + 1, 4 * N_STRM_AXI + 1})
 ) inst_config (
     .clk(clk),
     .rst_n(rst_n),
@@ -99,10 +99,10 @@ for (genvar I = 0; I < N_STRM_AXI; I++) begin
 
         .stop(is_stop),
 
-        .handshakes(perf_counters[4 * I]),
-        .starved   (perf_counters[4 * I + 1]),
-        .stalled   (perf_counters[4 * I + 2]),
-        .idle      (perf_counters[4 * I + 3])
+        .handshakes_cycles(perf_counters[4 * I]),
+        .starved_cycles   (perf_counters[4 * I + 1]),
+        .stalled_cycles   (perf_counters[4 * I + 2]),
+        .idle_cycles      (perf_counters[4 * I + 3])
     );
 end
 
