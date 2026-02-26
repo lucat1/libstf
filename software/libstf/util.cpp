@@ -27,4 +27,13 @@ void enqueue_stream_input(std::shared_ptr<coyote::cThread> cthread, std::shared_
     }
 }
 
+std::string demangle_type_name(const char *mangled) {
+    int status;
+    std::unique_ptr<char, void(*)(void*)> demangled(
+        abi::__cxa_demangle(mangled, nullptr, nullptr, &status),
+        std::free
+    );
+    return status == 0 ? demangled.get() : mangled;
+}
+
 } // namespace libstf

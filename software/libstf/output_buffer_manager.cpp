@@ -61,20 +61,20 @@ const std::string prefix = "libstf::OutputBufferManager::";
 // Public methods
 // ----------------------------------------------------------------------------
 OutputBufferManager::OutputBufferManager(std::shared_ptr<coyote::cThread> cthread, 
-    MemConfig mem_config, std::shared_ptr<MemoryPool> memory_pool, 
+    std::shared_ptr<MemConfig> mem_config, std::shared_ptr<MemoryPool> memory_pool, 
     std::shared_ptr<TLBManager> tlb_manager, size_t num_buffers_to_enqueue, size_t buffer_capacity)
         : cthread(cthread)
         , mem_config(mem_config)
         , memory_pool(memory_pool)
         , tlb_manager(tlb_manager)
-        , NUM_STREAMS(mem_config.num_streams())
+        , NUM_STREAMS(mem_config->num_streams())
         , NUM_BUFFERS_TO_ENQUEUE(num_buffers_to_enqueue)
         , BUFFER_CAPACITY(buffer_capacity)
         , enqueued_buffers(NUM_STREAMS)
         , enqueued_handles(NUM_STREAMS) {
     if (NUM_BUFFERS_TO_ENQUEUE == 0)
         throw std::runtime_error("Number of enqueued buffers has to be larger than 0");
-    if (NUM_BUFFERS_TO_ENQUEUE > mem_config.maximum_num_enqueued_buffers())
+    if (NUM_BUFFERS_TO_ENQUEUE > mem_config->maximum_num_enqueued_buffers())
         throw std::runtime_error("Number of enqueued buffers is higher than the maximum supported by the hardware");
     if (BUFFER_CAPACITY < BYTES_PER_FPGA_TRANSFER)
         throw std::runtime_error("Buffer capacity has to be >= " + std::to_string(BYTES_PER_FPGA_TRANSFER));
@@ -133,7 +133,7 @@ std::shared_ptr<OutputHandle> OutputBufferManager::acquire_output_handle(stream_
 }
 
 void OutputBufferManager::flush_buffers() {
-    mem_config.flush_buffers();
+    mem_config->flush_buffers();
 }
 
 // ----------------------------------------------------------------------------
@@ -204,7 +204,7 @@ void OutputBufferManager::enqueue_buffer_for_stream(stream_t stream_id) {
     enqueued_buffers[stream_id].push(buffer);
 
     // 3. Write the buffer to the FPGA
-    mem_config.enqueue_buffer(stream_id, buffer);
+    mem_config->enqueue_buffer(stream_id, buffer);
 
     Profiler::close_regions({prefix + "enqueue_buffer_for_stream"});
 }

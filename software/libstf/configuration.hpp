@@ -10,6 +10,7 @@
 
 #include "libstf/common.hpp"
 #include "libstf/buffer.hpp"
+#include "libstf/util.hpp"
 
 namespace libstf {
 
@@ -69,23 +70,24 @@ public:
 
     uint64_t system_id() { return system_id_; }
 
-    template <typename T> T get_config() {
+    template <typename T> std::shared_ptr<T> get_config() {
         static_assert(std::is_base_of_v<Config, T>, "T must derive from libstf::Config");
 
         auto it = configs_.find(T::ID);
         if (it == configs_.end()) {
             if (!has_config(T::ID)) {
-              auto name = std::string(typeid(T).name());
-              throw std::runtime_error("flashed design is missing configuration of type: " + name);
+                auto name = demangle_type_name(typeid(T).name());
+                throw std::runtime_error("Hardware design on device has no configuration " + name + 
+                    "(ID=" + std::to_string(T::ID) + ") which we were trying to get");
             }
 
             auto bounds = get_config_bounds(T::ID);
             auto addr_offset = std::get<0>(bounds);
             auto num_regs = std::get<1>(bounds) - addr_offset;
-            configs_[T::ID] = std::make_unique<T>(cthread, addr_offset, num_regs);
+            configs_[T::ID] = std::make_shared<T>(cthread, addr_offset, num_regs);
         }
 
-        return *static_cast<T *>(configs_[T::ID].get());
+        return std::static_pointer_cast<T>(configs_[T::ID]);
     }
 
 private:
@@ -94,7 +96,7 @@ private:
 
     std::vector<uint64_t> config_ids;
     std::vector<uint32_t> config_bounds;
-    std::unordered_map<uint64_t, std::unique_ptr<Config>> configs_;
+    std::unordered_map<uint64_t, std::shared_ptr<Config>> configs_;
 };
 
 class MemConfig : public Config {

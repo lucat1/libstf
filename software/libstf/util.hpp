@@ -2,6 +2,8 @@
 
 #include <cstddef>
 #include <memory>
+#include <string>
+#include <cxxabi.h>
 
 #include <coyote/cThread.hpp>
 
@@ -15,5 +17,7 @@ namespace libstf {
  * local reads of the maximum Coyote transfer size on the cThread.
  */
 void enqueue_stream_input(std::shared_ptr<coyote::cThread> cthread, std::shared_ptr<TLBManager> tlb_manager, const void *ptr, size_t size, stream_t stream, bool last = true);
+
+std::string demangle_type_name(const char *mangled);
 
 } // namespace libstf

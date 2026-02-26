@@ -30,7 +30,7 @@ public:
      * @param num_buffers_to_enqueue
      * @param buffer_capacity
      */
-    OutputBufferManager(std::shared_ptr<coyote::cThread> cthread, MemConfig mem_config, 
+    OutputBufferManager(std::shared_ptr<coyote::cThread> cthread, std::shared_ptr<MemConfig> mem_config, 
         std::shared_ptr<MemoryPool> memory_pool, std::shared_ptr<TLBManager> tlb_manager, 
         size_t num_buffers_to_enqueue = 2, size_t buffer_capacity = MAXIMUM_OUTPUT_WRITER_BUFFER_SIZE);
 
@@ -64,7 +64,7 @@ public:
 private:
     // We need to pass these because otherwise we will get a circular dependency to the CelerisContext
     std::shared_ptr<coyote::cThread> cthread;
-    MemConfig mem_config;
+    std::shared_ptr<MemConfig> mem_config;
     std::shared_ptr<MemoryPool> memory_pool;
     std::shared_ptr<TLBManager> tlb_manager;
 

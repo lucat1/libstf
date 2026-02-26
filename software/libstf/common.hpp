@@ -2,6 +2,7 @@
 
 #include <ostream>
 #include <variant>
+#include <bitset>
 
 namespace libstf {
 
@@ -36,6 +37,8 @@ static constexpr uint32_t FPGA_INTERRUPT_LAST_BITS          = 1;
 
 // -- Type defs ------------------------------------------------------------------------------------
 typedef uint8_t stream_t; // Type that holds a stream_id
+
+typedef std::bitset<MAXIMUM_FPGA_NUM_STREAMS> stream_mask_t;
 
 enum class type_t : unsigned char { 
     BYTE_T,

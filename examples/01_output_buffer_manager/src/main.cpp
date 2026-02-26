@@ -112,10 +112,10 @@ int main(int argc, char *argv[])  {
         args.num_enqueued_buffers, args.buffer_size);
     obm_ptr = &output_buffer_manager;
 
-    perf_config.write_register(ConfigRegister(0, args.num_runs));
+    perf_config->write_register(ConfigRegister(0, args.num_runs));
 
     assert(global_config.system_id() == 0);
-    assert(args.num_streams > 0 && args.num_streams <= mem_config.num_streams());
+    assert(args.num_streams > 0 && args.num_streams <= mem_config->num_streams());
 
     // Pre-map huge pages to FPGA TLB
     auto *huge_pool = dynamic_cast<libstf::HugePageMemoryPool *>(mem_pool.get());
@@ -204,10 +204,10 @@ int main(int argc, char *argv[])  {
     size_t stalled_cycles = 0;
     size_t idle_cycles = 0;
     for (size_t i = 0; i < args.num_streams; i++) {
-        handshake_cycles += perf_config.read_register(4 * i + 1).value();
-        starved_cycles   += perf_config.read_register(4 * i + 2).value();
-        stalled_cycles   += perf_config.read_register(4 * i + 3).value();
-        idle_cycles      += perf_config.read_register(4 * i + 4).value();
+        handshake_cycles += perf_config->read_register(4 * i + 1).value();
+        starved_cycles   += perf_config->read_register(4 * i + 2).value();
+        stalled_cycles   += perf_config->read_register(4 * i + 3).value();
+        idle_cycles      += perf_config->read_register(4 * i + 4).value();
     }
 
     auto total_cycles = handshake_cycles + starved_cycles + stalled_cycles + idle_cycles;

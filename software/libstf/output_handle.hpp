@@ -5,7 +5,6 @@
 #include <mutex>
 #include <condition_variable>
 #include <memory>
-#include <bitset>
 #include <stdexcept>
 
 #include <libstf/common.hpp>
@@ -14,8 +13,6 @@
 #include <libstf/common.hpp>
 
 namespace libstf {
-
-typedef std::bitset<MAXIMUM_FPGA_NUM_STREAMS> stream_mask_t;
 
 class OutputHandle {
     friend class OutputBufferManager;
